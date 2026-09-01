@@ -12,6 +12,10 @@ Views.debtDetail = async function (container, id) {
   const businessName = (appState.settings && appState.settings.business_name) || "تجارة السيارات";
   const iqdWhole =
     entry.amount_currency === "IQD" ? entry.amount_amount / 100 : (entry.amount_usd_cents / 100) * parseFloat(money.lastRate());
+  const usdText = money.formatUsd(entry.amount_usd_cents);
+  const iqdText = money.formatIqd(iqdWhole);
+  const primaryAmount = entry.amount_currency === "IQD" ? iqdText : usdText;
+  const secondaryAmount = entry.amount_currency === "IQD" ? usdText : iqdText;
 
   container.innerHTML = `
     <div class="topbar no-print">
@@ -21,8 +25,8 @@ Views.debtDetail = async function (container, id) {
 
     <div class="invoice-card">
       <div class="type-badge">${businessName} — ${label}</div>
-      <div class="amount">${money.formatUsd(entry.amount_usd_cents)}</div>
-      <div class="amount-iqd">≈ ${money.formatIqd(iqdWhole)}</div>
+      <div class="amount">${primaryAmount}</div>
+      <div class="amount-iqd">≈ ${secondaryAmount}</div>
       <div class="flow">
         <span>${entry.lender_name}</span>
         <span class="arrow">←</span>
@@ -53,7 +57,7 @@ Views.debtDetail = async function (container, id) {
     const text = [
       `📋 ${businessName} — ${label}`,
       `${entry.lender_name} ← ${entry.borrower_name}`,
-      `المبلغ: ${money.formatUsd(entry.amount_usd_cents)} (≈ ${money.formatIqd(iqdWhole)})`,
+      `المبلغ: ${primaryAmount} (≈ ${secondaryAmount})`,
       `التاريخ: ${entry.entry_date}`,
       entry.notes ? `ملاحظات: ${entry.notes}` : null,
     ]

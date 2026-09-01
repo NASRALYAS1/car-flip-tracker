@@ -19,19 +19,21 @@ const money = {
     return `${Math.round(iqdWhole).toLocaleString("en-US")} د.ع`;
   },
 
-  // Shows an amount in both currencies. If the record was itself entered in
-  // IQD, uses the exact original IQD figure (no re-conversion rounding);
-  // otherwise estimates IQD using the current/last known exchange rate.
+  // Shows an amount in both currencies, with whichever currency the
+  // transaction was actually entered in shown first/primary, and the other
+  // as a smaller "≈" estimate. If the record was entered in IQD, uses the
+  // exact original IQD figure (no re-conversion rounding) as the primary
+  // value; otherwise (USD entries, or an aggregate with no single record)
+  // USD is primary and IQD is estimated from the current exchange rate.
   formatDual(usdCents, record) {
     const usd = money.formatUsd(usdCents);
-    let iqdWhole;
     if (record && record.amount_currency === "IQD" && record.amount_amount != null) {
-      iqdWhole = record.amount_amount / 100;
-    } else {
-      const rate = parseFloat(money.lastRate());
-      if (!rate) return usd;
-      iqdWhole = (usdCents / 100) * rate;
+      const iqdWhole = record.amount_amount / 100;
+      return `${money.formatIqd(iqdWhole)} <span style="opacity:.6;font-weight:600">(≈ ${usd})</span>`;
     }
+    const rate = parseFloat(money.lastRate());
+    if (!rate) return usd;
+    const iqdWhole = (usdCents / 100) * rate;
     return `${usd} <span style="opacity:.6;font-weight:600">(≈ ${money.formatIqd(iqdWhole)})</span>`;
   },
 
