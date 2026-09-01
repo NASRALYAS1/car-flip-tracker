@@ -38,6 +38,23 @@ debtsRoutes.get("/", async (c) => {
   return c.json({ entries, net_balances: netBalances });
 });
 
+debtsRoutes.get("/:id", async (c) => {
+  const id = Number(c.req.param("id"));
+  const entry = await c.env.DB.prepare(
+    `SELECT pl.*, lu.display_name AS lender_name, bu.display_name AS borrower_name,
+            ru.display_name AS recorded_by_name
+     FROM partner_loans pl
+     JOIN users lu ON lu.id = pl.lender_user_id
+     JOIN users bu ON bu.id = pl.borrower_user_id
+     JOIN users ru ON ru.id = pl.recorded_by
+     WHERE pl.id = ?`
+  )
+    .bind(id)
+    .first();
+  if (!entry) return c.json({ error: "القيد غير موجود" }, 404);
+  return c.json(entry);
+});
+
 debtsRoutes.post("/", async (c) => {
   const body = await c.req.json<Record<string, unknown>>();
 

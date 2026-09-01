@@ -19,7 +19,7 @@ function renderDebts(container, data) {
       return `
       <div class="card">
         <p style="margin:0"><strong>${userName(debtor)}</strong> مديون لـ <strong>${userName(creditor)}</strong></p>
-        <p style="margin:4px 0 0;font-size:1.2rem;color:var(--amber)">${money.formatUsd(Math.abs(b.net_usd_cents))}</p>
+        <p style="margin:4px 0 0;font-size:1.2rem;color:var(--amber)">${money.formatDual(Math.abs(b.net_usd_cents))}</p>
       </div>`;
     })
     .join("");
@@ -29,9 +29,14 @@ function renderDebts(container, data) {
         .map((e) => {
           const label = e.entry_type === "loan" ? "سلفة" : "تسديد";
           return `
-        <div class="card-row">
-          <span class="label">${e.entry_date} — ${label}: ${e.lender_name} ← ${e.borrower_name}</span>
-          <span class="value">${money.formatUsd(e.amount_usd_cents)} <a href="#" data-del-debt="${e.id}" style="color:var(--red)">✕</a></span>
+        <div class="list-item" data-debt-id="${e.id}">
+          <div>
+            <div class="main">${label}: ${e.lender_name} ← ${e.borrower_name}</div>
+            <div class="sub">${e.entry_date}</div>
+          </div>
+          <div class="end">
+            <div class="amt">${money.formatDual(e.amount_usd_cents, e)}</div>
+          </div>
         </div>`;
         })
         .join("")
@@ -43,7 +48,10 @@ function renderDebts(container, data) {
     <div class="topbar"><h1>🤝 الديون بين الشريكين</h1></div>
     ${balanceCards}
 
-    <button class="btn secondary" id="toggle-debt-form" style="margin:12px 0">+ تسجيل سلفة أو تسديد</button>
+    <div class="btn-row" style="margin:12px 0">
+      <button class="btn secondary" id="toggle-debt-form">+ تسجيل سلفة أو تسديد</button>
+      <button class="btn secondary" id="share-history-btn">📤 مشاركة السجل الكامل</button>
+    </div>
     <div id="debt-form-wrap" class="hidden card">
       <form id="debt-form">
         <div class="field"><label>الطرف الأول</label>
@@ -69,13 +77,23 @@ function renderDebts(container, data) {
       </form>
     </div>
 
-    <h2>السجل</h2>
-    <div class="card">${entriesHtml}</div>
+    <h2>السجل (اضغط على أي قيد لعرض التفاصيل)</h2>
+    <div id="debts-list">${entriesHtml}</div>
     <div id="debts-msg"></div>
   `;
 
   container.querySelector("#toggle-debt-form").addEventListener("click", () => {
     container.querySelector("#debt-form-wrap").classList.toggle("hidden");
+  });
+
+  container.querySelectorAll("[data-debt-id]").forEach((row) => {
+    row.addEventListener("click", () => {
+      window.location.hash = `#/debt/${row.dataset.debtId}`;
+    });
+  });
+
+  container.querySelector("#share-history-btn").addEventListener("click", () => {
+    shareDebtsHistory(data);
   });
 
   async function refresh() {
@@ -110,17 +128,58 @@ function renderDebts(container, data) {
       container.querySelector("#debts-msg").innerHTML = `<div class="error-msg">${err.message}</div>`;
     }
   });
+}
 
-  container.querySelectorAll("[data-del-debt]").forEach((a) => {
-    a.addEventListener("click", async (e) => {
-      e.preventDefault();
-      if (!confirm("حذف هذا القيد؟")) return;
-      try {
-        await api.del(`/debts/${a.dataset.delDebt}`);
-        await refresh();
-      } catch (err) {
-        container.querySelector("#debts-msg").innerHTML = `<div class="error-msg">${err.message}</div>`;
-      }
-    });
-  });
+function buildDebtsHistoryText(data) {
+  const businessName = (appState.settings && appState.settings.business_name) || "تجارة السيارات";
+  const lines = [`📋 سجل الديون بين الشركاء — ${businessName}`, ""];
+
+  lines.push("الأرصدة الحالية:");
+  if (data.net_balances.length === 0) {
+    lines.push("لا يوجد أي سجل بعد");
+  }
+  for (const b of data.net_balances) {
+    if (b.net_usd_cents === 0) {
+      lines.push(`- لا يوجد رصيد مستحق بين ${userName(b.user_a)} و ${userName(b.user_b)}`);
+    } else {
+      const creditor = b.net_usd_cents > 0 ? b.user_a : b.user_b;
+      const debtor = b.net_usd_cents > 0 ? b.user_b : b.user_a;
+      lines.push(
+        `- ${userName(debtor)} مديون لـ ${userName(creditor)}: ${money.formatUsd(Math.abs(b.net_usd_cents))}`
+      );
+    }
+  }
+
+  lines.push("", "تفاصيل القيود:");
+  for (const e of data.entries) {
+    const label = e.entry_type === "loan" ? "سلفة" : "تسديد";
+    lines.push(`- ${e.entry_date} | ${label}: ${e.lender_name} ← ${e.borrower_name} | ${money.formatUsd(e.amount_usd_cents)}`);
+  }
+
+  return lines.join("\n");
+}
+
+async function shareDebtsHistory(data) {
+  const text = buildDebtsHistoryText(data);
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: "سجل الديون بين الشركاء", text });
+      return;
+    } catch {
+      // user cancelled the share sheet, or share failed — fall through to download
+    }
+  }
+  downloadTextFile(`سجل-الديون-${new Date().toISOString().slice(0, 10)}.txt`, text);
+}
+
+function downloadTextFile(filename, text) {
+  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }

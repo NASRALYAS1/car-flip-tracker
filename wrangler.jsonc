@@ -22,7 +22,7 @@
     }
   ],
   "triggers": {
-    "crons": ["0 3 * * *"]
+    "crons": ["0 21 * * *"]
   },
   "vars": {
     "VAPID_PUBLIC_KEY": "BOIAjX0t7Vt1RqSPZSzWFQpfwKUqCdwzfdxeVrJHmVKryF5LmnHtYuB8SpNqm-7-2m2GKCSJI7cRvOwrq1RtGHI"

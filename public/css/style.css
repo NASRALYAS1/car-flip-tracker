@@ -460,6 +460,32 @@ label { display: block; font-size: 0.82rem; color: var(--text-dim); margin-botto
   font-weight: 600;
 }
 
+.invoice-card {
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  padding: 22px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-card);
+  text-align: center;
+}
+.invoice-card .type-badge { font-size: 0.85rem; color: var(--text-dim); font-weight: 700; margin-bottom: 6px; }
+.invoice-card .amount { font-size: 2.2rem; font-weight: 800; font-variant-numeric: tabular-nums; margin: 6px 0; }
+.invoice-card .amount-iqd { color: var(--text-dim); font-size: 1rem; margin-bottom: 14px; }
+.invoice-card .flow { display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: 700; margin: 10px 0; }
+.invoice-card .flow .arrow { color: var(--text-faint); }
+
+.no-print { }
+
+@media print {
+  .no-print, .bottom-nav { display: none !important; }
+  body { background: #fff; color: #111; }
+  #app { max-width: 100%; padding: 0; }
+  .card, .invoice-card { background: #fff; border-color: #ccc; box-shadow: none; color: #111; }
+  .card-row { border-color: #ddd; }
+  .card-row .label, .invoice-card .amount-iqd, .invoice-card .type-badge { color: #555; }
+}
+
 ::selection { background: var(--accent); color: #052033; }
 
 ::-webkit-scrollbar { height: 0; width: 6px; }

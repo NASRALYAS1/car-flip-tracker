@@ -70,6 +70,8 @@ async function router() {
         return await Views.installments(appEl);
       case "debts":
         return await Views.debts(appEl);
+      case "debt":
+        return await Views.debtDetail(appEl, Number(params[0]));
       case "settings":
         return await Views.settings(appEl);
       case "partners":

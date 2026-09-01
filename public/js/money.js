@@ -15,6 +15,26 @@ const money = {
     if (rate) localStorage.setItem("last_exchange_rate", String(rate));
   },
 
+  formatIqd(iqdWhole) {
+    return `${Math.round(iqdWhole).toLocaleString("en-US")} د.ع`;
+  },
+
+  // Shows an amount in both currencies. If the record was itself entered in
+  // IQD, uses the exact original IQD figure (no re-conversion rounding);
+  // otherwise estimates IQD using the current/last known exchange rate.
+  formatDual(usdCents, record) {
+    const usd = money.formatUsd(usdCents);
+    let iqdWhole;
+    if (record && record.amount_currency === "IQD" && record.amount_amount != null) {
+      iqdWhole = record.amount_amount / 100;
+    } else {
+      const rate = parseFloat(money.lastRate());
+      if (!rate) return usd;
+      iqdWhole = (usdCents / 100) * rate;
+    }
+    return `${usd} <span style="opacity:.6;font-weight:600">(≈ ${money.formatIqd(iqdWhole)})</span>`;
+  },
+
   // Renders a currency-aware money field: amount + USD/IQD select + (conditional) exchange rate.
   inputHtml(prefix, labelText, opts = {}) {
     const required = opts.required !== false;
