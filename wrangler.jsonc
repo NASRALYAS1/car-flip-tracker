@@ -12,7 +12,7 @@
     {
       "binding": "DB",
       "database_name": "car-flip-tracker-db",
-      "database_id": "REPLACE_WITH_D1_DATABASE_ID"
+      "database_id": "2cb517b5-e5aa-45f2-bd68-9cef6a243efa"
     }
   ],
   "r2_buckets": [
@@ -25,6 +25,6 @@
     "crons": ["0 3 * * *"]
   },
   "vars": {
-    "VAPID_PUBLIC_KEY": "REPLACE_WITH_VAPID_PUBLIC_KEY"
+    "VAPID_PUBLIC_KEY": "BOIAjX0t7Vt1RqSPZSzWFQpfwKUqCdwzfdxeVrJHmVKryF5LmnHtYuB8SpNqm-7-2m2GKCSJI7cRvOwrq1RtGHI"
   }
 }
