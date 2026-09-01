@@ -1,0 +1,5 @@
+# Copy this file to .dev.vars for local `wrangler dev` (never commit .dev.vars).
+# In production these are set with `wrangler secret put <NAME>` instead.
+
+VAPID_PRIVATE_KEY=
+VAPID_SUBJECT=mailto:you@example.com

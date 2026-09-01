@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+  <title>تجارة السيارات</title>
+  <meta name="theme-color" content="#0f172a" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="icon" href="/icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div id="app"></div>
+  <nav id="bottom-nav" class="bottom-nav hidden">
+    <a href="#/dashboard" data-route="dashboard"><span class="icon">🏠</span><span>الرئيسية</span></a>
+    <a href="#/cars" data-route="cars"><span class="icon">🚗</span><span>السيارات</span></a>
+    <a href="#/installments" data-route="installments"><span class="icon">📅</span><span>الأقساط</span></a>
+    <a href="#/debts" data-route="debts"><span class="icon">🤝</span><span>الديون</span></a>
+    <a href="#/settings" data-route="settings"><span class="icon">⚙️</span><span>الإعدادات</span></a>
+  </nav>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/money.js"></script>
+  <script src="/js/views/setup.js"></script>
+  <script src="/js/views/login.js"></script>
+  <script src="/js/views/dashboard.js"></script>
+  <script src="/js/views/carList.js"></script>
+  <script src="/js/views/carDetail.js"></script>
+  <script src="/js/views/addCarForm.js"></script>
+  <script src="/js/views/saleForm.js"></script>
+  <script src="/js/views/tradeForm.js"></script>
+  <script src="/js/views/installments.js"></script>
+  <script src="/js/views/debts.js"></script>
+  <script src="/js/views/settings.js"></script>
+  <script src="/js/views/partners.js"></script>
+  <script src="/js/views/expensePresets.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>
