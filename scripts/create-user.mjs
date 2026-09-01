@@ -4,7 +4,7 @@
 // can't self-serve: the last remaining partner forgot their password and
 // there's nobody else logged in who can reset it for them.
 //
-// Hashes a password the same way the app does (PBKDF2-SHA256, 210,000
+// Hashes a password the same way the app does (PBKDF2-SHA256, 100,000
 // iterations) and prints a ready-to-run SQL command, so a real password
 // never has to go through chat or get committed to a file.
 //
@@ -19,7 +19,9 @@
 import { pbkdf2Sync, randomBytes } from "node:crypto";
 import { createInterface } from "node:readline";
 
-const ITERATIONS = 210_000;
+// must match PBKDF2_ITERATIONS in src/lib/auth.ts — Cloudflare Workers'
+// WebCrypto PBKDF2 caps at 100,000 iterations, so the app uses that value
+const ITERATIONS = 100_000;
 
 function hashPassword(password) {
   const salt = randomBytes(16).toString("hex");

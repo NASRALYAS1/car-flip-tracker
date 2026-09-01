@@ -1,4 +1,7 @@
-const PBKDF2_ITERATIONS = 210_000;
+// Cloudflare Workers' WebCrypto PBKDF2 implementation hard-caps iterations
+// at 100,000 (throws NotSupportedError above that) — this is the max the
+// runtime this app actually deploys to will allow, not a security choice.
+const PBKDF2_ITERATIONS = 100_000;
 
 function bufToHex(buf: ArrayBuffer): string {
   return Array.from(new Uint8Array(buf))
