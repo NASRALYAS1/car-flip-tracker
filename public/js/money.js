@@ -19,6 +19,36 @@ const money = {
     return `${Math.round(iqdWhole).toLocaleString("en-US")} د.ع`;
   },
 
+  // Adds thousands separators to a raw digit string as typed, e.g.
+  // "10000" -> "10,000", "10000.5" -> "10,000.5". Leaves the decimal part
+  // untouched so it doesn't fight the user mid-typing.
+  formatWithCommas(raw) {
+    const [intPart, decPart] = raw.split(".");
+    const formattedInt = (intPart || "").replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    return decPart !== undefined ? `${formattedInt}.${decPart}` : formattedInt;
+  },
+
+  stripCommas(value) {
+    return String(value ?? "").replace(/,/g, "");
+  },
+
+  // Live-formats a text amount input with thousands separators as the user
+  // types, keeping the cursor in a sane spot (counted from the end, so
+  // inserted commas ahead of the cursor don't push it around).
+  bindThousandsFormatting(input) {
+    if (!input) return;
+    input.addEventListener("input", () => {
+      const fromEnd = input.value.length - (input.selectionStart ?? input.value.length);
+      let raw = money.stripCommas(input.value).replace(/[^\d.]/g, "");
+      const parts = raw.split(".");
+      if (parts.length > 2) raw = parts[0] + "." + parts.slice(1).join("");
+      const formatted = money.formatWithCommas(raw);
+      input.value = formatted;
+      const pos = Math.max(0, formatted.length - fromEnd);
+      input.setSelectionRange(pos, pos);
+    });
+  },
+
   // Shows an amount in both currencies, with whichever currency the
   // transaction was actually entered in shown first/primary, and the other
   // as a smaller "≈" estimate. If the record was entered in IQD, uses the
@@ -45,8 +75,9 @@ const money = {
       <div class="field">
         <label>${labelText}</label>
         <div class="money-input">
-          <input type="number" step="0.01" min="0" name="${prefix}_amount_display"
-                 ${required ? "required" : ""} placeholder="0.00" autocomplete="off" />
+          <input type="text" inputmode="decimal" name="${prefix}_amount_display"
+                 ${required ? "required" : ""} placeholder="0.00" autocomplete="off"
+                 style="direction:ltr;text-align:right" />
           <select name="${prefix}_currency" data-money-currency="${prefix}">
             <option value="USD" ${defaultCurrency === "USD" ? "selected" : ""}>USD</option>
             <option value="IQD" ${defaultCurrency === "IQD" ? "selected" : ""}>IQD</option>
@@ -75,7 +106,10 @@ const money = {
     // existing "999.96" silently produces "2999.96"). Select-all on focus
     // so typing always starts fresh.
     const amountInput = container.querySelector(`[name="${prefix}_amount_display"]`);
-    if (amountInput) amountInput.addEventListener("focus", () => amountInput.select());
+    if (amountInput) {
+      amountInput.addEventListener("focus", () => amountInput.select());
+      money.bindThousandsFormatting(amountInput);
+    }
     const rateInput = container.querySelector(`[name="${prefix}_exchange_rate"]`);
     if (rateInput) rateInput.addEventListener("focus", () => rateInput.select());
   },
@@ -88,7 +122,7 @@ const money = {
     const rate = formData.get(`${prefix}_exchange_rate`);
     if (display === null || display === "") return null;
 
-    const amount = Math.round(parseFloat(display) * 100);
+    const amount = Math.round(parseFloat(money.stripCommas(display)) * 100);
     const result = { [`${prefix}_amount`]: amount, [`${prefix}_currency`]: currency };
     if (currency === "IQD") {
       result[`${prefix}_exchange_rate`] = parseFloat(rate);

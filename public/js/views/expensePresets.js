@@ -114,7 +114,7 @@ function openPresetEditForm(container, preset, refresh) {
   container.querySelector("#preset-msg").before(wrap);
 
   const form = wrap.querySelector("#edit-preset-form");
-  form.querySelector('[name="default_amount_amount_display"]').value = (preset.default_amount / 100).toFixed(2);
+  form.querySelector('[name="default_amount_amount_display"]').value = money.formatWithCommas((preset.default_amount / 100).toFixed(2));
   money.bindInputToggle(form, "default_amount");
 
   form.addEventListener("submit", async (e) => {

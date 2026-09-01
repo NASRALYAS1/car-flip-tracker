@@ -8,6 +8,37 @@ function userName(id) {
   return u ? u.display_name : "؟";
 }
 
+// Which currency should this pair's balance lead with? There's no single
+// "original currency" for a net balance (it's a sum across possibly many
+// transactions), so use whichever currency they most recently actually
+// transacted in — entries are already sorted newest-first.
+function latestEntryForPair(entries, userA, userB) {
+  return entries.find(
+    (e) =>
+      (e.lender_user_id === userA && e.borrower_user_id === userB) ||
+      (e.lender_user_id === userB && e.borrower_user_id === userA)
+  );
+}
+
+function renderDebtEntries(entries) {
+  if (!entries.length) return '<p style="color:var(--text-dim)">لا يوجد سجل بعد</p>';
+  return entries
+    .map((e) => {
+      const label = e.entry_type === "loan" ? "سلفة" : "تسديد";
+      return `
+    <div class="list-item" data-debt-id="${e.id}">
+      <div>
+        <div class="main">${label}: ${e.lender_name} ← ${e.borrower_name}</div>
+        <div class="sub">${e.entry_date}</div>
+      </div>
+      <div class="end">
+        <div class="amt">${money.formatDual(e.amount_usd_cents, e)}</div>
+      </div>
+    </div>`;
+    })
+    .join("");
+}
+
 function renderDebts(container, data) {
   const balanceCards = data.net_balances
     .map((b) => {
@@ -16,31 +47,14 @@ function renderDebts(container, data) {
       }
       const creditor = b.net_usd_cents > 0 ? b.user_a : b.user_b;
       const debtor = b.net_usd_cents > 0 ? b.user_b : b.user_a;
+      const latest = latestEntryForPair(data.entries, b.user_a, b.user_b);
       return `
       <div class="card">
         <p style="margin:0"><strong>${userName(debtor)}</strong> مديون لـ <strong>${userName(creditor)}</strong></p>
-        <p style="margin:4px 0 0;font-size:1.2rem;color:var(--amber)">${money.formatDual(Math.abs(b.net_usd_cents))}</p>
+        <p style="margin:4px 0 0;font-size:1.2rem;color:var(--amber)">${money.formatDual(Math.abs(b.net_usd_cents), latest)}</p>
       </div>`;
     })
     .join("");
-
-  const entriesHtml = data.entries.length
-    ? data.entries
-        .map((e) => {
-          const label = e.entry_type === "loan" ? "سلفة" : "تسديد";
-          return `
-        <div class="list-item" data-debt-id="${e.id}">
-          <div>
-            <div class="main">${label}: ${e.lender_name} ← ${e.borrower_name}</div>
-            <div class="sub">${e.entry_date}</div>
-          </div>
-          <div class="end">
-            <div class="amt">${money.formatDual(e.amount_usd_cents, e)}</div>
-          </div>
-        </div>`;
-        })
-        .join("")
-    : '<p style="color:var(--text-dim)">لا يوجد سجل بعد</p>';
 
   const activeUsers = appState.users.filter((u) => u.is_active);
 
@@ -78,7 +92,8 @@ function renderDebts(container, data) {
     </div>
 
     <h2>السجل (اضغط على أي قيد لعرض التفاصيل)</h2>
-    <div id="debts-list">${entriesHtml}</div>
+    <input type="search" id="debts-search" placeholder="🔍 دوّر بالاسم أو الملاحظات أو التاريخ..." style="margin-bottom:12px" />
+    <div id="debts-list">${renderDebtEntries(data.entries)}</div>
     <div id="debts-msg"></div>
   `;
 
@@ -86,10 +101,28 @@ function renderDebts(container, data) {
     container.querySelector("#debt-form-wrap").classList.toggle("hidden");
   });
 
-  container.querySelectorAll("[data-debt-id]").forEach((row) => {
-    row.addEventListener("click", () => {
-      window.location.hash = `#/debt/${row.dataset.debtId}`;
+  function bindEntryClicks() {
+    container.querySelectorAll("#debts-list [data-debt-id]").forEach((row) => {
+      row.addEventListener("click", () => {
+        window.location.hash = `#/debt/${row.dataset.debtId}`;
+      });
     });
+  }
+  bindEntryClicks();
+
+  container.querySelector("#debts-search").addEventListener("input", (e) => {
+    const q = e.target.value.trim().toLowerCase();
+    const filtered = !q
+      ? data.entries
+      : data.entries.filter((entry) =>
+          [entry.lender_name, entry.borrower_name, entry.notes, entry.entry_date]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase()
+            .includes(q)
+        );
+    container.querySelector("#debts-list").innerHTML = renderDebtEntries(filtered);
+    bindEntryClicks();
   });
 
   container.querySelector("#share-history-btn").addEventListener("click", () => {

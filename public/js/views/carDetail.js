@@ -121,7 +121,7 @@ function renderCarDetail(container, car) {
       form.querySelector('[name="description"]').value = preset.description;
       form.querySelector('[data-money-currency="amount"]').value = preset.default_currency;
       const amountInput = form.querySelector('[name="amount_amount_display"]');
-      amountInput.value = (preset.default_amount / 100).toFixed(2);
+      amountInput.value = money.formatWithCommas((preset.default_amount / 100).toFixed(2));
       form.querySelector('[data-rate-row="amount"]').classList.toggle("show", preset.default_currency === "IQD");
       amountInput.focus();
       amountInput.select();
@@ -186,7 +186,7 @@ function openExpenseEditForm(container, car, expense) {
   container.querySelector("#car-detail-msg").before(wrap);
 
   const form = wrap.querySelector("#edit-expense-form");
-  form.querySelector('[name="amount_amount_display"]').value = (expense.amount_amount / 100).toFixed(2);
+  form.querySelector('[name="amount_amount_display"]').value = money.formatWithCommas((expense.amount_amount / 100).toFixed(2));
   if (expense.amount_currency === "IQD" && expense.amount_exchange_rate) {
     form.querySelector('[name="amount_exchange_rate"]').value = expense.amount_exchange_rate;
   }
@@ -237,7 +237,7 @@ function openSaleEditForm(container, car) {
   container.querySelector("#car-detail-msg").before(wrap);
 
   const form = wrap.querySelector("#edit-sale-form");
-  form.querySelector('[name="sale_price_amount_display"]').value = (s.sale_price_amount / 100).toFixed(2);
+  form.querySelector('[name="sale_price_amount_display"]').value = money.formatWithCommas((s.sale_price_amount / 100).toFixed(2));
   if (s.sale_price_currency === "IQD" && s.sale_price_exchange_rate) {
     form.querySelector('[name="sale_price_exchange_rate"]').value = s.sale_price_exchange_rate;
   }
