@@ -51,14 +51,21 @@ const money = {
 
   // Shows an amount in both currencies, with whichever currency the
   // transaction was actually entered in shown first/primary, and the other
-  // as a smaller "≈" estimate. If the record was entered in IQD, uses the
-  // exact original IQD figure (no re-conversion rounding) as the primary
-  // value; otherwise (USD entries, or an aggregate with no single record)
-  // USD is primary and IQD is estimated from the current exchange rate.
+  // as a smaller "≈" estimate. If the record was entered in IQD *and*
+  // usdCents is that same record's own amount, uses the exact original IQD
+  // figure (no re-conversion rounding). If usdCents is some other figure
+  // (e.g. an aggregate net balance merely styled after this record's
+  // currency), converts that figure using the record's own exchange rate
+  // instead of substituting the record's unrelated raw amount. With no
+  // usable record, USD is primary and IQD is estimated from the current
+  // exchange rate.
   formatDual(usdCents, record) {
     const usd = money.formatUsd(usdCents);
     if (record && record.amount_currency === "IQD" && record.amount_amount != null) {
-      const iqdWhole = record.amount_amount / 100;
+      const isSameAmount = usdCents === record.amount_usd_cents;
+      const iqdWhole = isSameAmount
+        ? record.amount_amount / 100
+        : (usdCents / 100) * record.amount_exchange_rate;
       return `${money.formatIqd(iqdWhole)} <span style="opacity:.6;font-weight:600">(≈ ${usd})</span>`;
     }
     const rate = parseFloat(money.lastRate());

@@ -361,7 +361,10 @@ function saleSectionHtml(car) {
       <h2>سجل الدفعات</h2>
       <div class="card">${paymentsHtml}</div>
 
-      <button class="btn secondary" id="toggle-payment-form" style="margin-bottom:16px">+ تسجيل دفعة جديدة</button>
+      <div class="btn-row" style="margin-bottom:16px">
+        <button class="btn secondary" id="toggle-payment-form">+ تسجيل دفعة جديدة</button>
+        ${!isPaidOff ? `<button class="btn secondary" id="payoff-btn" data-remaining="${remaining}">💰 دفع الباقي بالكامل</button>` : ""}
+      </div>
       <div id="payment-form-wrap" class="hidden card">
         <form id="payment-form">
           ${money.inputHtml("amount", "مبلغ الدفعة")}
@@ -423,6 +426,19 @@ function bindSaleSection(container, car) {
     });
     const form = container.querySelector("#payment-form");
     money.bindInputToggle(form, "amount");
+
+    const payoffBtn = container.querySelector("#payoff-btn");
+    if (payoffBtn) {
+      payoffBtn.addEventListener("click", () => {
+        container.querySelector("#payment-form-wrap").classList.remove("hidden");
+        const remainingUsd = Number(payoffBtn.dataset.remaining) / 100;
+        const amountInput = form.querySelector('[name="amount_amount_display"]');
+        form.querySelector('[data-money-currency="amount"]').value = "USD";
+        form.querySelector('[data-rate-row="amount"]').classList.remove("show");
+        amountInput.value = money.formatWithCommas(remainingUsd.toFixed(2));
+        amountInput.scrollIntoView({ block: "center" });
+      });
+    }
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       const fd = new FormData(form);

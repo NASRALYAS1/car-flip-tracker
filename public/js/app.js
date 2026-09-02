@@ -116,10 +116,36 @@ async function init() {
     }
   }
 
+  if (appState.user && AppLock.isConfigured()) {
+    await AppLock.showUnlockScreen();
+  }
+
   await router();
 
   if (appState.user) setupPush();
 }
+
+// Re-lock every time the app is backgrounded and reopened (switching tabs,
+// closing and relaunching the installed PWA, screen lock, etc.), not just
+// on first load.
+let lockCheckInFlight = false;
+document.addEventListener("visibilitychange", async () => {
+  if (document.visibilityState === "hidden") {
+    AppLock.unlockedThisSession = false;
+    return;
+  }
+  if (
+    document.visibilityState === "visible" &&
+    appState.user &&
+    AppLock.isConfigured() &&
+    !AppLock.unlockedThisSession &&
+    !lockCheckInFlight
+  ) {
+    lockCheckInFlight = true;
+    await AppLock.showUnlockScreen();
+    lockCheckInFlight = false;
+  }
+});
 
 window.addEventListener("hashchange", router);
 window.addEventListener("DOMContentLoaded", init);

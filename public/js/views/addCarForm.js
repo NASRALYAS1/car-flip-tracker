@@ -14,8 +14,8 @@ Views.addCarForm = async function (container) {
         <div class="field"><label>سنة الصنع</label><input type="number" name="year" /></div>
         <div class="field"><label>اللون</label><input name="color" /></div>
       </div>
-      <div class="field"><label>العداد (كم)</label><input type="number" name="mileage" /></div>
-      <div class="field"><label>رقم الشاصي (VIN)</label><input name="vin" /></div>
+      <div class="field"><label>العداد (كم) — اختياري</label><input type="number" name="mileage" /></div>
+      <div class="field"><label>رقم الشاصي (VIN) — اختياري</label><input name="vin" /></div>
       <div class="field"><label>تاريخ الشراء</label><input type="date" name="purchase_date" value="${today}" required /></div>
 
       ${money.inputHtml("purchase_price", "سعر الشراء")}
