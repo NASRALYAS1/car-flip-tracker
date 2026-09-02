@@ -9,12 +9,28 @@ Views.carDetail = async function (container, id) {
 // sales are settled the instant they're recorded; installment sales are
 // settled once nothing is left owing.
 function isSaleClosed(car) {
+  // Traded away: its cost was already carried forward into the new car as a
+  // one-time snapshot, so nothing added here afterward would affect any
+  // profit/cost calculation anywhere — it's a dead end, same as a finished sale.
+  if (car.status === "traded") return true;
   if (!car.sale) return false;
   if (car.sale.sale_type === "cash") return true;
   const paid = car.installment_payments.reduce((s, p) => s + p.amount_usd_cents, 0);
   const totalPaid = (car.sale.down_payment_usd_cents || 0) + paid;
   const remaining = car.sale.sale_price_usd_cents - (car.sale.discount_usd_cents || 0) - totalPaid;
   return remaining <= 0;
+}
+
+// money.formatDual expects a record with amount_currency/amount_amount/
+// amount_exchange_rate keys — cars and sales store their money fields under
+// a different prefix (purchase_price_*, sale_price_*, ...), so adapt.
+function dualFor(usdCents, obj, prefix) {
+  return money.formatDual(usdCents, {
+    amount_currency: obj[`${prefix}_currency`],
+    amount_amount: obj[`${prefix}_amount`],
+    amount_exchange_rate: obj[`${prefix}_exchange_rate`],
+    amount_usd_cents: obj[`${prefix}_usd_cents`],
+  });
 }
 
 function renderCarDetail(container, car) {
@@ -33,12 +49,18 @@ function renderCarDetail(container, car) {
     ${chainHtml(car.chain, car.id)}
 
     <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <h2 style="margin:0">بيانات السيارة</h2>
+        ${closed ? "" : `<a href="#" id="edit-car-btn">✎ تعديل</a>`}
+      </div>
       <div class="card-row"><span class="label">تاريخ الشراء</span><span class="value">${car.purchase_date}</span></div>
-      <div class="card-row"><span class="label">سعر الشراء</span><span class="value">${money.formatUsd(car.purchase_price_usd_cents)}</span></div>
+      <div class="card-row"><span class="label">سعر الشراء</span><span class="value">${dualFor(car.purchase_price_usd_cents, car, "purchase_price")}</span></div>
       ${car.year ? `<div class="card-row"><span class="label">سنة الصنع</span><span class="value">${car.year}</span></div>` : ""}
       ${car.color ? `<div class="card-row"><span class="label">اللون</span><span class="value">${car.color}</span></div>` : ""}
       ${car.mileage ? `<div class="card-row"><span class="label">العداد</span><span class="value">${car.mileage} كم</span></div>` : ""}
+      ${car.vin ? `<div class="card-row"><span class="label">رقم الشاصي (VIN)</span><span class="value">${car.vin}</span></div>` : ""}
       ${car.seller_name ? `<div class="card-row"><span class="label">البائع</span><span class="value">${car.seller_name}</span></div>` : ""}
+      ${car.seller_contact ? `<div class="card-row"><span class="label">هاتف البائع</span><span class="value">${car.seller_contact}</span></div>` : ""}
       ${car.condition_notes ? `<p style="margin-top:8px;color:var(--text-dim)">${car.condition_notes}</p>` : ""}
     </div>
 
@@ -67,7 +89,7 @@ function renderCarDetail(container, car) {
                 (e) => `
         <div class="card-row" data-expense-id="${e.id}">
           <span class="label">${e.description} <span style="opacity:.6">(${e.expense_date})</span></span>
-          <span class="value">${money.formatUsd(e.amount_usd_cents)}${closed ? "" : ` <a href="#" data-edit-expense="${e.id}">✎</a> <a href="#" data-del-expense="${e.id}" style="color:var(--red)">✕</a>`}</span>
+          <span class="value">${money.formatDual(e.amount_usd_cents, e)}${closed ? "" : ` <a href="#" data-edit-expense="${e.id}">✎</a> <a href="#" data-del-expense="${e.id}" style="color:var(--red)">✕</a>`}</span>
         </div>`
               )
               .join("")
@@ -112,6 +134,14 @@ function renderCarDetail(container, car) {
   `;
 
   container.querySelector("[data-back]").addEventListener("click", () => (window.location.hash = "#/cars"));
+
+  const editCarBtn = container.querySelector("#edit-car-btn");
+  if (editCarBtn) {
+    editCarBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      openCarEditForm(container, car);
+    });
+  }
 
   const addPhotoBtn = container.querySelector("#add-photo-btn");
   if (addPhotoBtn) {
@@ -203,6 +233,57 @@ function renderCarDetail(container, car) {
 
   bindActions(container, car);
   bindSaleSection(container, car);
+}
+
+function openCarEditForm(container, car) {
+  const existing = container.querySelector("#edit-car-wrap");
+  if (existing) existing.remove();
+
+  const wrap = document.createElement("div");
+  wrap.id = "edit-car-wrap";
+  wrap.className = "card";
+  wrap.innerHTML = `
+    <h2>تعديل بيانات السيارة</h2>
+    <form id="edit-car-form">
+      <div class="field"><label>الماركة</label><input name="make" value="${car.make}" required /></div>
+      <div class="field"><label>الموديل</label><input name="model" value="${car.model}" required /></div>
+      <div class="grid-2">
+        <div class="field"><label>سنة الصنع</label><input type="number" name="year" value="${car.year ?? ""}" /></div>
+        <div class="field"><label>اللون</label><input name="color" value="${car.color ?? ""}" /></div>
+      </div>
+      <div class="field"><label>العداد (كم)</label><input type="number" name="mileage" value="${car.mileage ?? ""}" /></div>
+      <div class="field"><label>رقم الشاصي (VIN)</label><input name="vin" value="${car.vin ?? ""}" /></div>
+      <div class="field"><label>اسم البائع</label><input name="seller_name" value="${car.seller_name ?? ""}" /></div>
+      <div class="field"><label>هاتف البائع</label><input name="seller_contact" value="${car.seller_contact ?? ""}" /></div>
+      <div class="field"><label>ملاحظات الحالة</label><input name="condition_notes" value="${car.condition_notes ?? ""}" /></div>
+      <button type="submit" class="btn">حفظ</button>
+    </form>
+  `;
+  container.querySelector("#car-detail-msg").before(wrap);
+
+  const form = wrap.querySelector("#edit-car-form");
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const fd = new FormData(form);
+    const payload = {
+      make: fd.get("make"),
+      model: fd.get("model"),
+      year: fd.get("year") ? Number(fd.get("year")) : null,
+      color: fd.get("color") || null,
+      mileage: fd.get("mileage") ? Number(fd.get("mileage")) : null,
+      vin: fd.get("vin") || null,
+      seller_name: fd.get("seller_name") || null,
+      seller_contact: fd.get("seller_contact") || null,
+      condition_notes: fd.get("condition_notes") || null,
+    };
+    try {
+      await api.patch(`/cars/${car.id}`, payload);
+      const fresh = await api.get(`/cars/${car.id}`);
+      renderCarDetail(container, fresh);
+    } catch (err) {
+      container.querySelector("#car-detail-msg").innerHTML = `<div class="error-msg">${err.message}</div>`;
+    }
+  });
 }
 
 function openExpenseEditForm(container, car, expense) {
@@ -373,7 +454,7 @@ function saleSectionHtml(car, closed) {
         <div class="payment-row" data-payment-id="${p.id}">
           <div class="icon">💵</div>
           <div class="info">
-            <div class="amt">${money.formatUsd(p.amount_usd_cents)}</div>
+            <div class="amt">${money.formatDual(p.amount_usd_cents, p)}</div>
             <div class="date">${p.payment_date}</div>
           </div>
           ${closed ? "" : `<a href="#" class="del" data-del-payment="${p.id}" title="حذف الدفعة">✕</a>`}
@@ -395,7 +476,7 @@ function saleSectionHtml(car, closed) {
           <span>دفع ${money.formatUsd(totalPaid)} من ${money.formatUsd(s.sale_price_usd_cents)}</span>
           <span>${Math.round(pct)}%</span>
         </div>
-        <div class="card-row" style="margin-top:14px"><span class="label">المقدمة</span><span class="value">${money.formatUsd(s.down_payment_usd_cents || 0)}</span></div>
+        <div class="card-row" style="margin-top:14px"><span class="label">المقدمة</span><span class="value">${s.down_payment_amount != null ? dualFor(s.down_payment_usd_cents || 0, s, "down_payment") : money.formatUsd(s.down_payment_usd_cents || 0)}</span></div>
         <div class="card-row"><span class="label">القسط الشهري المخطط</span><span class="value">${money.formatUsd(s.planned_monthly_installment_usd_cents)}</span></div>
         ${
           discount > 0
@@ -451,7 +532,7 @@ function saleSectionHtml(car, closed) {
         ${closed ? "" : `<a href="#" id="edit-sale-btn">✎ تعديل</a>`}
       </div>
       <div class="card-row"><span class="label">تاريخ البيع</span><span class="value">${s.sale_date}</span></div>
-      <div class="card-row"><span class="label">سعر البيع</span><span class="value">${money.formatUsd(s.sale_price_usd_cents)}</span></div>
+      <div class="card-row"><span class="label">سعر البيع</span><span class="value">${dualFor(s.sale_price_usd_cents, s, "sale_price")}</span></div>
       ${s.buyer_name ? `<div class="card-row"><span class="label">المشتري</span><span class="value">${s.buyer_name}</span></div>` : ""}
       <div class="card-row" style="border-top:1px solid var(--border);margin-top:8px;padding-top:10px">
         <span class="label">الربح</span>

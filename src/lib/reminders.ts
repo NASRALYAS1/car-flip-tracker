@@ -10,6 +10,7 @@ type InstallmentSaleRow = {
   sale_date: string;
   sale_price_usd_cents: number;
   down_payment_usd_cents: number;
+  discount_usd_cents: number;
   last_payment_date: string | null;
   paid_usd_cents: number;
 };
@@ -25,7 +26,7 @@ export async function checkOverdueInstallments(env: Bindings, db: D1Database): P
     .prepare(
       `SELECT
          s.id AS sale_id, c.id AS car_id, c.make, c.model, s.buyer_name,
-         s.sale_date, s.sale_price_usd_cents, s.down_payment_usd_cents,
+         s.sale_date, s.sale_price_usd_cents, s.down_payment_usd_cents, s.discount_usd_cents,
          MAX(ip.payment_date) AS last_payment_date,
          COALESCE(SUM(ip.amount_usd_cents), 0) AS paid_usd_cents
        FROM sales s
@@ -41,7 +42,7 @@ export async function checkOverdueInstallments(env: Bindings, db: D1Database): P
 
   for (const row of results ?? []) {
     const totalPaid = row.down_payment_usd_cents + row.paid_usd_cents;
-    const remaining = row.sale_price_usd_cents - totalPaid;
+    const remaining = row.sale_price_usd_cents - row.discount_usd_cents - totalPaid;
     if (remaining <= 0) continue;
 
     const baseline = row.last_payment_date ?? row.sale_date;
