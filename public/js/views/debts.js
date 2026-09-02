@@ -177,8 +177,9 @@ function buildDebtsHistoryText(data) {
     } else {
       const creditor = b.net_usd_cents > 0 ? b.user_a : b.user_b;
       const debtor = b.net_usd_cents > 0 ? b.user_b : b.user_a;
+      const latest = latestEntryForPair(data.entries, b.user_a, b.user_b);
       lines.push(
-        `- ${userName(debtor)} مديون لـ ${userName(creditor)}: ${money.formatUsd(Math.abs(b.net_usd_cents))}`
+        `- ${userName(debtor)} مديون لـ ${userName(creditor)}: ${money.formatDualText(Math.abs(b.net_usd_cents), latest)}`
       );
     }
   }
@@ -186,7 +187,7 @@ function buildDebtsHistoryText(data) {
   lines.push("", "تفاصيل القيود:");
   for (const e of data.entries) {
     const label = e.entry_type === "loan" ? "سلفة" : "تسديد";
-    lines.push(`- ${e.entry_date} | ${label}: ${e.lender_name} ← ${e.borrower_name} | ${money.formatUsd(e.amount_usd_cents)}`);
+    lines.push(`- ${e.entry_date} | ${label}: ${e.lender_name} ← ${e.borrower_name} | ${money.formatDualText(e.amount_usd_cents, e)}`);
   }
 
   return lines.join("\n");

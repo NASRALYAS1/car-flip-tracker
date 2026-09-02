@@ -49,29 +49,44 @@ const money = {
     });
   },
 
-  // Shows an amount in both currencies, with whichever currency the
-  // transaction was actually entered in shown first/primary, and the other
-  // as a smaller "≈" estimate. If the record was entered in IQD *and*
-  // usdCents is that same record's own amount, uses the exact original IQD
-  // figure (no re-conversion rounding). If usdCents is some other figure
-  // (e.g. an aggregate net balance merely styled after this record's
-  // currency), converts that figure using the record's own exchange rate
-  // instead of substituting the record's unrelated raw amount. With no
-  // usable record, USD is primary and IQD is estimated from the current
-  // exchange rate.
-  formatDual(usdCents, record) {
+  // Works out the {primary, secondary} plain-text amounts for a dual
+  // currency display, with whichever currency the transaction was
+  // actually entered in shown primary. If the record was entered in IQD
+  // *and* usdCents is that same record's own amount, uses the exact
+  // original IQD figure (no re-conversion rounding). If usdCents is some
+  // other figure (e.g. an aggregate net balance merely styled after this
+  // record's currency), converts that figure using the record's own
+  // exchange rate instead of substituting the record's unrelated raw
+  // amount. With no usable record, USD is primary and IQD is estimated
+  // from the current exchange rate. Shared by both the on-screen (HTML)
+  // and shared/exported (plain text) formatters, so they can never drift
+  // out of sync with each other.
+  formatDualParts(usdCents, record) {
     const usd = money.formatUsd(usdCents);
     if (record && record.amount_currency === "IQD" && record.amount_amount != null) {
       const isSameAmount = usdCents === record.amount_usd_cents;
       const iqdWhole = isSameAmount
         ? record.amount_amount / 100
         : (usdCents / 100) * record.amount_exchange_rate;
-      return `${money.formatIqd(iqdWhole)} <span style="opacity:.6;font-weight:600">(≈ ${usd})</span>`;
+      return { primary: money.formatIqd(iqdWhole), secondary: usd };
     }
     const rate = parseFloat(money.lastRate());
-    if (!rate) return usd;
+    if (!rate) return { primary: usd, secondary: null };
     const iqdWhole = (usdCents / 100) * rate;
-    return `${usd} <span style="opacity:.6;font-weight:600">(≈ ${money.formatIqd(iqdWhole)})</span>`;
+    return { primary: usd, secondary: money.formatIqd(iqdWhole) };
+  },
+
+  // HTML version for on-screen rendering (secondary amount dimmed).
+  formatDual(usdCents, record) {
+    const { primary, secondary } = money.formatDualParts(usdCents, record);
+    if (!secondary) return primary;
+    return `${primary} <span style="opacity:.6;font-weight:600">(≈ ${secondary})</span>`;
+  },
+
+  // Plain-text version for shared/exported/printed content.
+  formatDualText(usdCents, record) {
+    const { primary, secondary } = money.formatDualParts(usdCents, record);
+    return secondary ? `${primary} (≈ ${secondary})` : primary;
   },
 
   // Renders a currency-aware money field: amount + USD/IQD select + (conditional) exchange rate.

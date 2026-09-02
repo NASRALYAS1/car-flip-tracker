@@ -10,12 +10,7 @@ Views.debtDetail = async function (container, id) {
 
   const label = entry.entry_type === "loan" ? "سلفة" : "تسديد";
   const businessName = (appState.settings && appState.settings.business_name) || "تجارة السيارات";
-  const iqdWhole =
-    entry.amount_currency === "IQD" ? entry.amount_amount / 100 : (entry.amount_usd_cents / 100) * parseFloat(money.lastRate());
-  const usdText = money.formatUsd(entry.amount_usd_cents);
-  const iqdText = money.formatIqd(iqdWhole);
-  const primaryAmount = entry.amount_currency === "IQD" ? iqdText : usdText;
-  const secondaryAmount = entry.amount_currency === "IQD" ? usdText : iqdText;
+  const { primary: primaryAmount, secondary: secondaryAmount } = money.formatDualParts(entry.amount_usd_cents, entry);
 
   container.innerHTML = `
     <div class="topbar no-print">
