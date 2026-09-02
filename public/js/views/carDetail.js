@@ -441,6 +441,10 @@ function saleSectionHtml(car, closed) {
     const discount = s.discount_usd_cents || 0;
     const remaining = s.sale_price_usd_cents - discount - totalPaid;
     const isPaidOff = remaining <= 0;
+    const lastPaymentDate = car.installment_payments[0]?.payment_date ?? null;
+    const nextDue = new Date(lastPaymentDate ?? s.sale_date);
+    nextDue.setMonth(nextDue.getMonth() + 1);
+    const isOverdue = !isPaidOff && new Date() > nextDue;
     // based on how much of the sale price is accounted for (paid + forgiven),
     // not just cash collected, so a discounted settlement correctly shows 100%
     const pct = s.sale_price_usd_cents > 0
@@ -492,6 +496,7 @@ function saleSectionHtml(car, closed) {
       ${
         !isPaidOff
           ? `
+      <button class="btn secondary" id="send-reminder-btn" data-overdue="${isOverdue}" style="margin-bottom:16px">📤 إرسال تذكير عبر واتساب (اختياري)</button>
       <div class="btn-row" style="margin-bottom:16px">
         <button class="btn secondary" id="toggle-payment-form">+ تسجيل دفعة جديدة</button>
         <button class="btn secondary" id="payoff-btn" data-remaining="${remaining}">💰 دفع الباقي بالكامل</button>
@@ -563,6 +568,37 @@ function bindSaleSection(container, car) {
     editSaleBtn.addEventListener("click", (e) => {
       e.preventDefault();
       openSaleEditForm(container, car);
+    });
+  }
+
+  const reminderBtn = container.querySelector("#send-reminder-btn");
+  if (reminderBtn) {
+    reminderBtn.addEventListener("click", async () => {
+      const s = car.sale;
+      const paid = car.installment_payments.reduce((sum, p) => sum + p.amount_usd_cents, 0);
+      const totalPaid = (s.down_payment_usd_cents || 0) + paid;
+      const remainingUsdCents = s.sale_price_usd_cents - (s.discount_usd_cents || 0) - totalPaid;
+      const businessName = (appState.settings && appState.settings.business_name) || "تجارة السيارات";
+      const isOverdue = reminderBtn.dataset.overdue === "true";
+
+      const text = [
+        s.buyer_name ? `مرحباً ${s.buyer_name}،` : "مرحباً،",
+        isOverdue
+          ? `تذكير بخصوص قسط سيارتك (${car.make} ${car.model}) لدى ${businessName} — القسط متأخر عن موعده.`
+          : `تذكير ودّي بخصوص قسط سيارتك (${car.make} ${car.model}) لدى ${businessName}.`,
+        `المبلغ المتبقي: ${money.formatDualText(remainingUsdCents)}`,
+        "نرجو التواصل لتسديد القسط بأقرب وقت ممكن. شكراً لتعاونكم.",
+      ].join("\n");
+
+      if (navigator.share) {
+        try {
+          await navigator.share({ text });
+        } catch {
+          // user cancelled the share sheet — nothing to do
+        }
+      } else {
+        await UI.alert("انسخ الرسالة وأرسلها يدوياً عبر واتساب:\n\n" + text);
+      }
     });
   }
 
