@@ -1,6 +1,13 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../types";
-import { hashPassword, newSessionToken, sessionCookieHeader, sessionExpiryIso } from "../lib/auth";
+import {
+  hashPassword,
+  newSessionToken,
+  sessionCookieHeader,
+  sessionExpiryIso,
+  generateRecoveryCode,
+  normalizeRecoveryCode,
+} from "../lib/auth";
 
 // mounted at /api/setup — unauthenticated by design, but every write is
 // guarded by "only when the users table is empty" so it can't be used
@@ -35,14 +42,16 @@ setupRoutes.post("/init", async (c) => {
   }
 
   const passwordHash = await hashPassword(password);
+  const recoveryCode = generateRecoveryCode();
+  const recoveryCodeHash = await hashPassword(normalizeRecoveryCode(recoveryCode));
 
   let userId: number;
   try {
     const result = await c.env.DB.prepare(
-      `INSERT INTO users (username, password_hash, display_name, profit_split_pct, is_active)
-       VALUES (?, ?, ?, 100, 1)`
+      `INSERT INTO users (username, password_hash, display_name, profit_split_pct, is_active, recovery_code_hash)
+       VALUES (?, ?, ?, 100, 1, ?)`
     )
-      .bind(username, passwordHash, displayName)
+      .bind(username, passwordHash, displayName, recoveryCodeHash)
       .run();
     userId = result.meta.last_row_id as number;
   } catch {
@@ -65,5 +74,5 @@ setupRoutes.post("/init", async (c) => {
 
   const secure = new URL(c.req.url).protocol === "https:";
   c.header("Set-Cookie", sessionCookieHeader(token, secure));
-  return c.json({ id: userId, display_name: displayName }, 201);
+  return c.json({ id: userId, display_name: displayName, recovery_code: recoveryCode }, 201);
 });

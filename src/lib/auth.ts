@@ -68,6 +68,30 @@ export function newSessionToken(): string {
   return randomHex(32);
 }
 
+// Excludes 0/O/1/I/L — characters easy to mix up when copying a code down
+// by hand onto paper.
+const RECOVERY_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+
+// Shown to the user once, in groups for readability (e.g. "XJ4K-9QRT-2FHM").
+export function generateRecoveryCode(): string {
+  const groups: string[] = [];
+  for (let g = 0; g < 3; g++) {
+    let group = "";
+    for (let i = 0; i < 4; i++) {
+      const idx = crypto.getRandomValues(new Uint32Array(1))[0] % RECOVERY_CODE_ALPHABET.length;
+      group += RECOVERY_CODE_ALPHABET[idx];
+    }
+    groups.push(group);
+  }
+  return groups.join("-");
+}
+
+// Strips formatting so a code still matches whether or not the user retypes
+// the dashes, lowercase letters, or stray spaces.
+export function normalizeRecoveryCode(code: string): string {
+  return code.toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
 const SESSION_COOKIE = "session";
 const SESSION_DAYS = 30;
 

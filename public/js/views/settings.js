@@ -21,6 +21,15 @@ Views.settings = async function (container) {
     <div id="lock-section"></div>
     <div id="lock-msg"></div>
 
+    <h2>🔑 رمز الاسترجاع</h2>
+    <div class="card">
+      <p style="margin:0 0 12px;color:var(--text-dim)">
+        رمز الاسترجاع يخليك ترجع لحسابك إذا نسيت كلمة المرور، بدون ما تحتاج شريك ثاني يفتحلك.
+        إذا ضيّعت رمزك القديم أو تشك إنه صار معروف لأحد، ولّد رمز جديد — الرمز القديم يوقف عن الشغل فوراً.
+      </p>
+      <button class="btn secondary" id="regen-recovery-btn">🔑 توليد رمز استرجاع جديد</button>
+    </div>
+
     <button class="btn danger" id="logout-btn" style="margin-top:16px">تسجيل خروج</button>
   `;
 
@@ -37,6 +46,15 @@ Views.settings = async function (container) {
     } catch (err) {
       container.querySelector("#settings-msg").innerHTML = `<div class="error-msg">${err.message}</div>`;
     }
+  });
+
+  container.querySelector("#regen-recovery-btn").addEventListener("click", async () => {
+    if (
+      !(await UI.confirm("توليد رمز استرجاع جديد؟ أي رمز قديم عندك ما راح يشتغل بعدها.", { okText: "توليد" }))
+    )
+      return;
+    const result = await api.post("/users/recovery-code/regenerate");
+    await UI.showRecoveryCode(result.recovery_code);
   });
 
   container.querySelector("#logout-btn").addEventListener("click", async () => {

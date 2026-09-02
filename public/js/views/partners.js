@@ -134,12 +134,15 @@ function renderPartners(container, users) {
     e.preventDefault();
     const fd = new FormData(addForm);
     try {
-      await api.post("/users", {
+      const result = await api.post("/users", {
         display_name: fd.get("display_name"),
         username: fd.get("username"),
         password: fd.get("password"),
       });
       await refresh();
+      if (result.recovery_code) {
+        await UI.showRecoveryCode(result.recovery_code, { title: `🔑 رمز استرجاع ${result.display_name}` });
+      }
     } catch (err) {
       container.querySelector("#partners-msg").innerHTML = `<div class="error-msg">${err.message}</div>`;
     }

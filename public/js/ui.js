@@ -29,6 +29,48 @@ const UI = {
     });
   },
 
+  // Shown once when a recovery code is (re)generated — deliberately has no
+  // click-outside-to-dismiss and no auto-resolve, only the explicit
+  // "saved it" button, since this is the only moment the app can ever show
+  // this code (it's stored as a one-way hash, same as a password).
+  showRecoveryCode(code, { title = "🔑 رمز الاسترجاع" } = {}) {
+    return new Promise((resolve) => {
+      const overlay = document.createElement("div");
+      overlay.className = "ui-modal-overlay";
+      overlay.innerHTML = `
+        <div class="ui-modal-card">
+          <p class="ui-modal-msg" style="font-weight:800">${title}</p>
+          <p style="color:var(--text-dim);font-size:0.85rem;margin:-6px 0 12px">
+            احتفظ بهذا الرمز بمكان آمن (اكتبه أو صوّره) — تحتاجه إذا نسيت كلمة المرور يوماً.
+            ما راح يظهر لك مرة ثانية بعد ما تسكر هذي الشاشة.
+          </p>
+          <div style="font-family:monospace;font-size:1.3rem;font-weight:800;letter-spacing:1px;
+                      text-align:center;background:var(--surface-2);border:1px solid var(--border-soft);
+                      border-radius:var(--radius-sm);padding:14px;margin-bottom:14px;direction:ltr">${code}</div>
+          <div class="btn-row">
+            <button type="button" class="btn secondary" id="ui-copy-code">📋 نسخ الرمز</button>
+          </div>
+          <button type="button" class="btn" id="ui-modal-ok" style="margin-top:10px">تم، حفظت الرمز</button>
+        </div>`;
+      document.body.appendChild(overlay);
+
+      overlay.querySelector("#ui-copy-code").addEventListener("click", async () => {
+        const btn = overlay.querySelector("#ui-copy-code");
+        try {
+          await navigator.clipboard.writeText(code);
+          btn.textContent = "✅ تم النسخ";
+        } catch {
+          btn.textContent = "تعذّر النسخ — انسخه يدوياً";
+        }
+        setTimeout(() => (btn.textContent = "📋 نسخ الرمز"), 1800);
+      });
+      overlay.querySelector("#ui-modal-ok").addEventListener("click", () => {
+        overlay.remove();
+        resolve();
+      });
+    });
+  },
+
   alert(message, { okText = "حسناً" } = {}) {
     return new Promise((resolve) => {
       const overlay = document.createElement("div");

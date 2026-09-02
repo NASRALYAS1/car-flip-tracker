@@ -25,7 +25,7 @@ Views.setup = async function (container) {
     errorEl.innerHTML = "";
     const fd = new FormData(form);
     try {
-      await api.post("/setup/init", {
+      const result = await api.post("/setup/init", {
         business_name: fd.get("business_name") || null,
         display_name: fd.get("display_name"),
         username: fd.get("username"),
@@ -33,6 +33,7 @@ Views.setup = async function (container) {
       });
       appState.needsSetup = false;
       await loadShellData();
+      if (result.recovery_code) await UI.showRecoveryCode(result.recovery_code);
       window.location.hash = "#/dashboard";
       await router();
       setupPush();

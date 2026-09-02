@@ -1,5 +1,12 @@
 window.Views = {};
 
+// For most routes, a 401 means the session died mid-use — bounce to login.
+// But these endpoints are themselves the "prove who you are" step, where a
+// 401 is an expected, on-page-recoverable outcome (wrong password/recovery
+// code), not a dead session — they need their real server error message
+// shown inline instead of being swallowed by a redirect.
+const AUTH_ATTEMPT_PATHS = ["/auth/login", "/auth/recover"];
+
 const api = {
   async request(method, path, body) {
     const opts = {
@@ -15,7 +22,7 @@ const api = {
     }
 
     const res = await fetch(`/api${path}`, opts);
-    if (res.status === 401) {
+    if (res.status === 401 && !AUTH_ATTEMPT_PATHS.includes(path)) {
       window.location.hash = "#/login";
       throw new Error("غير مصرح");
     }

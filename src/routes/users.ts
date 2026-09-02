@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../types";
 import { requireAuth } from "../middleware/requireAuth";
-import { hashPassword } from "../lib/auth";
+import { hashPassword, generateRecoveryCode, normalizeRecoveryCode } from "../lib/auth";
 
 // mounted at /api/users — partner (user) management. Any logged-in partner
 // can manage the others: this app has no separate "admin" role, by design
@@ -38,14 +38,16 @@ usersRoutes.post("/", async (c) => {
   }
 
   const passwordHash = await hashPassword(password);
+  const recoveryCode = generateRecoveryCode();
+  const recoveryCodeHash = await hashPassword(normalizeRecoveryCode(recoveryCode));
 
   let userId: number;
   try {
     const result = await c.env.DB.prepare(
-      `INSERT INTO users (username, password_hash, display_name, profit_split_pct, is_active)
-       VALUES (?, ?, ?, 0, 1)`
+      `INSERT INTO users (username, password_hash, display_name, profit_split_pct, is_active, recovery_code_hash)
+       VALUES (?, ?, ?, 0, 1, ?)`
     )
-      .bind(username, passwordHash, displayName)
+      .bind(username, passwordHash, displayName, recoveryCodeHash)
       .run();
     userId = result.meta.last_row_id as number;
   } catch {
@@ -57,7 +59,22 @@ usersRoutes.post("/", async (c) => {
   )
     .bind(userId)
     .first();
-  return c.json(user, 201);
+  return c.json({ ...user, recovery_code: recoveryCode }, 201);
+});
+
+// Regenerates the CALLER's own recovery code — never someone else's. There's
+// no admin role in this app (see README), so nobody should be able to mint a
+// fresh break-glass credential for another partner's account behind their
+// back; each partner manages only their own.
+// must be registered before "/:id" so it isn't swallowed by the param route
+usersRoutes.post("/recovery-code/regenerate", async (c) => {
+  const userId = c.get("userId");
+  const recoveryCode = generateRecoveryCode();
+  const recoveryCodeHash = await hashPassword(normalizeRecoveryCode(recoveryCode));
+  await c.env.DB.prepare(`UPDATE users SET recovery_code_hash = ? WHERE id = ?`)
+    .bind(recoveryCodeHash, userId)
+    .run();
+  return c.json({ recovery_code: recoveryCode });
 });
 
 // must be registered before "/:id" so it isn't swallowed by the param route
