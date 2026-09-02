@@ -228,11 +228,13 @@ function renderLockSection(container) {
   const changeBtn = section.querySelector("#change-pin-btn");
   if (changeBtn) {
     changeBtn.addEventListener("click", () => {
-      startPinSetupFlow(pinSetupHost, async (pin) => {
-        await AppLock.setPin(pin);
-        pinSetupHost.innerHTML = "";
-        container.querySelector("#lock-msg").innerHTML =
-          '<div class="card" style="color:var(--green)">تم تغيير الرمز</div>';
+      promptCurrentPin(pinSetupHost, () => {
+        startPinSetupFlow(pinSetupHost, async (pin) => {
+          await AppLock.setPin(pin);
+          pinSetupHost.innerHTML = "";
+          container.querySelector("#lock-msg").innerHTML =
+            '<div class="card" style="color:var(--green)">تم تغيير الرمز</div>';
+        });
       });
     });
   }
@@ -240,9 +242,13 @@ function renderLockSection(container) {
   const disableBtn = section.querySelector("#disable-lock-btn");
   if (disableBtn) {
     disableBtn.addEventListener("click", async () => {
-      if (!(await UI.confirm("إلغاء قفل التطبيق؟", { danger: true }))) return;
-      AppLock.disable();
-      refresh();
+      if (!(await UI.confirm("إلغاء قفل التطبيق؟ راح نطلب منك رمز القفل الحالي للتأكيد.", { danger: true })))
+        return;
+      promptCurrentPin(pinSetupHost, () => {
+        AppLock.disable();
+        pinSetupHost.innerHTML = "";
+        refresh();
+      });
     });
   }
 
@@ -251,8 +257,11 @@ function renderLockSection(container) {
     fpBtn.addEventListener("click", async () => {
       const msg = container.querySelector("#lock-msg");
       if (AppLock.hasFingerprint()) {
-        AppLock.disableFingerprint();
-        refresh();
+        promptCurrentPin(pinSetupHost, () => {
+          AppLock.disableFingerprint();
+          pinSetupHost.innerHTML = "";
+          refresh();
+        });
         return;
       }
       try {
@@ -263,6 +272,70 @@ function renderLockSection(container) {
       }
     });
   }
+}
+
+// Requires re-entering the CURRENT PIN before disabling the lock, changing
+// it, or turning off fingerprint unlock. Without this, anyone who picks up
+// an already-unlocked phone could strip the lock (or silently plant their
+// own PIN) with a single tap and a generic yes/no confirm — the confirm
+// dialog alone doesn't prove it's actually the owner doing it.
+function promptCurrentPin(host, onVerified) {
+  let entered = "";
+
+  function render() {
+    host.innerHTML = `
+      <div class="card">
+        <p style="margin:0 0 8px;font-weight:700">أدخل رمز القفل الحالي للتأكيد</p>
+        <div class="pin-setup-pad" id="verify-pin-dots"></div>
+        <div id="verify-pin-error" class="lock-error"></div>
+        <div class="lock-keypad">
+          ${[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `<button type="button" data-d="${n}">${n}</button>`).join("")}
+          <button type="button" id="verify-pin-cancel-btn" style="border-radius:var(--radius-sm);font-size:0.8rem">إلغاء</button>
+          <button type="button" data-d="0">0</button>
+          <button type="button" id="verify-pin-back-btn">⌫</button>
+        </div>
+      </div>
+    `;
+    renderDots();
+
+    host.querySelectorAll("[data-d]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        if (entered.length >= 6) return;
+        entered += btn.dataset.d;
+        host.querySelector("#verify-pin-error").textContent = "";
+        renderDots();
+        if (entered.length < 4) return;
+
+        const ok = await AppLock.verifyPin(entered);
+        if (ok) {
+          onVerified();
+          return;
+        }
+        if (entered.length >= 6) {
+          host.querySelector("#verify-pin-error").textContent = "الرمز غير صحيح";
+          entered = "";
+          renderDots();
+        }
+      });
+    });
+    host.querySelector("#verify-pin-back-btn").addEventListener("click", () => {
+      entered = entered.slice(0, -1);
+      renderDots();
+    });
+    host.querySelector("#verify-pin-cancel-btn").addEventListener("click", () => {
+      host.innerHTML = "";
+    });
+  }
+
+  function renderDots() {
+    const dotsEl = host.querySelector("#verify-pin-dots");
+    dotsEl.innerHTML = Array.from({ length: Math.max(4, entered.length) })
+      .map((_, i) => `<span class="dot ${i < entered.length ? "filled" : ""}"></span>`)
+      .join("");
+  }
+
+  host.classList.remove("hidden");
+  render();
 }
 
 // Two-step "enter new PIN, then confirm it" flow using the same tappable
