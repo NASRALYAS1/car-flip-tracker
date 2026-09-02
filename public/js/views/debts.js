@@ -143,7 +143,7 @@ function renderDebts(container, data) {
     if (!amountField) return;
 
     if (fd.get("party_a") === fd.get("party_b")) {
-      alert("الطرف الأول والطرف الثاني يجب أن يكونوا مختلفين");
+      await UI.alert("الطرف الأول والطرف الثاني يجب أن يكونوا مختلفين");
       return;
     }
 

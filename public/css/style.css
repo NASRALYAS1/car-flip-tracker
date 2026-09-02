@@ -530,6 +530,29 @@ label { display: block; font-size: 0.82rem; color: var(--text-dim); margin-botto
 }
 .pin-setup-pad .dot.filled { background: var(--accent); border-color: var(--accent); }
 
+.ui-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  background: rgba(5, 8, 18, 0.72);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.ui-modal-card {
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  padding: 22px;
+  max-width: 340px;
+  width: 100%;
+  box-shadow: var(--shadow-card);
+  animation: viewIn 0.15s ease both;
+}
+.ui-modal-msg { margin: 0 0 18px; line-height: 1.6; white-space: pre-line; }
+
 ::selection { background: var(--accent); color: #052033; }
 
 ::-webkit-scrollbar { height: 0; width: 6px; }

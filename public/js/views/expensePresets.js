@@ -77,7 +77,7 @@ function renderExpensePresets(container, presets) {
   container.querySelectorAll("[data-del-preset]").forEach((a) => {
     a.addEventListener("click", async (e) => {
       e.preventDefault();
-      if (!confirm("حذف هذا القالب؟")) return;
+      if (!(await UI.confirm("حذف هذا القالب؟", { danger: true }))) return;
       try {
         await api.del(`/expense-presets/${a.dataset.delPreset}`);
         await refresh();

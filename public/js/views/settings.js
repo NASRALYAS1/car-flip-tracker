@@ -122,8 +122,8 @@ function renderLockSection(container) {
 
   const disableBtn = section.querySelector("#disable-lock-btn");
   if (disableBtn) {
-    disableBtn.addEventListener("click", () => {
-      if (!confirm("إلغاء قفل التطبيق؟")) return;
+    disableBtn.addEventListener("click", async () => {
+      if (!(await UI.confirm("إلغاء قفل التطبيق؟", { danger: true }))) return;
       AppLock.disable();
       refresh();
     });

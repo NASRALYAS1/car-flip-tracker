@@ -96,12 +96,12 @@ function renderCarDetail(container, car) {
       const fresh = await api.get(`/cars/${car.id}`);
       renderCarDetail(container, fresh);
     } catch (err) {
-      alert(err.message);
+      await UI.alert(err.message);
     }
   });
   container.querySelectorAll("#photo-grid img").forEach((img) => {
     img.addEventListener("click", async () => {
-      if (!confirm("حذف هذه الصورة؟")) return;
+      if (!(await UI.confirm("حذف هذه الصورة؟", { danger: true }))) return;
       await api.del(`/photos/${img.dataset.photoId}`);
       const fresh = await api.get(`/cars/${car.id}`);
       renderCarDetail(container, fresh);
@@ -143,7 +143,7 @@ function renderCarDetail(container, car) {
       const fresh = await api.get(`/cars/${car.id}`);
       renderCarDetail(container, fresh);
     } catch (err) {
-      alert(err.message);
+      await UI.alert(err.message);
     }
   });
   container.querySelectorAll("[data-edit-expense]").forEach((a) => {
@@ -156,7 +156,7 @@ function renderCarDetail(container, car) {
   container.querySelectorAll("[data-del-expense]").forEach((a) => {
     a.addEventListener("click", async (e) => {
       e.preventDefault();
-      if (!confirm("حذف هذا المصروف؟")) return;
+      if (!(await UI.confirm("حذف هذا المصروف؟", { danger: true }))) return;
       await api.del(`/expenses/${a.dataset.delExpense}`);
       const fresh = await api.get(`/cars/${car.id}`);
       renderCarDetail(container, fresh);
@@ -292,7 +292,7 @@ function bindActions(container, car) {
   const archiveBtn = container.querySelector("#archive-btn");
   if (archiveBtn) {
     archiveBtn.addEventListener("click", async () => {
-      if (!confirm("أرشفة هذه السيارة؟")) return;
+      if (!(await UI.confirm("أرشفة هذه السيارة؟", { danger: true }))) return;
       await api.post(`/cars/${car.id}/archive`);
       window.location.hash = "#/cars";
     });
@@ -370,9 +370,12 @@ function saleSectionHtml(car) {
       <h2>سجل الدفعات</h2>
       <div class="card">${paymentsHtml}</div>
 
+      ${
+        !isPaidOff
+          ? `
       <div class="btn-row" style="margin-bottom:16px">
         <button class="btn secondary" id="toggle-payment-form">+ تسجيل دفعة جديدة</button>
-        ${!isPaidOff ? `<button class="btn secondary" id="payoff-btn" data-remaining="${remaining}">💰 دفع الباقي بالكامل</button>` : ""}
+        <button class="btn secondary" id="payoff-btn" data-remaining="${remaining}">💰 دفع الباقي بالكامل</button>
       </div>
       <div id="payment-form-wrap" class="hidden card">
         <form id="payment-form">
@@ -384,10 +387,6 @@ function saleSectionHtml(car) {
           <button type="submit" class="btn">حفظ الدفعة</button>
         </form>
       </div>
-
-      ${
-        !isPaidOff
-          ? `
       <button class="btn secondary" id="toggle-settle-form" style="margin-bottom:16px">🏷️ تسوية نهائية بخصم (المشتري يريد يدفع أقل من الباقي)</button>
       <div id="settle-form-wrap" class="hidden card">
         <p style="margin:0 0 10px;color:var(--text-dim)">
@@ -402,7 +401,7 @@ function saleSectionHtml(car) {
           <button type="submit" class="btn">تأكيد التسوية والإغلاق</button>
         </form>
       </div>`
-          : ""
+          : `<div class="empty-state"><span class="emoji">✅</span>العقد مكتمل ومسدد بالكامل، ما فيه إمكانية لإضافة دفعات جديدة عليه.</div>`
       }
     `;
   }
@@ -429,13 +428,13 @@ function bindSaleSection(container, car) {
   const undoTradeBtn = container.querySelector("#undo-trade-btn");
   if (undoTradeBtn) {
     undoTradeBtn.addEventListener("click", async () => {
-      if (!confirm("إلغاء هذا التبديل؟ السيارة الجديدة تنحذف والسيارة هذه ترجع للمخزون.")) return;
+      if (!(await UI.confirm("إلغاء هذا التبديل؟ السيارة الجديدة تنحذف والسيارة هذه ترجع للمخزون.", { danger: true }))) return;
       try {
         await api.del(`/cars/${car.id}/trade`);
         const fresh = await api.get(`/cars/${car.id}`);
         renderCarDetail(container, fresh);
       } catch (err) {
-        alert(err.message);
+        await UI.alert(err.message);
       }
     });
   }
@@ -482,7 +481,7 @@ function bindSaleSection(container, car) {
         const fresh = await api.get(`/cars/${car.id}`);
         renderCarDetail(container, fresh);
       } catch (err) {
-        alert(err.message);
+        await UI.alert(err.message);
       }
     });
   }
@@ -535,16 +534,14 @@ function bindSaleSection(container, car) {
         : field.settle_amount_amount;
       const discountNow = remainingUsdCents - enteredUsdCents;
       if (discountNow <= 0) {
-        alert("هذا المبلغ يغطي كل الباقي أو أكثر — ما فيه خصم لتسويته، استخدم (دفع الباقي بالكامل) بدل هذا.");
+        await UI.alert("هذا المبلغ يغطي كل الباقي أو أكثر — ما فيه خصم لتسويته، استخدم (دفع الباقي بالكامل) بدل هذا.");
         return;
       }
-      if (
-        !confirm(
-          `راح تقبل ${money.formatUsd(enteredUsdCents)} وتسوي خصم ${money.formatUsd(discountNow)} على الباقي، ويصير العقد مكتمل. أكيد؟`
-        )
-      ) {
-        return;
-      }
+      const confirmed = await UI.confirm(
+        `راح تقبل ${money.formatUsd(enteredUsdCents)} وتسوي خصم ${money.formatUsd(discountNow)} على الباقي، ويصير العقد مكتمل. أكيد؟`,
+        { okText: "أكيد، سوّي التسوية" }
+      );
+      if (!confirmed) return;
       try {
         await api.post(`/cars/${car.id}/sale/settle`, {
           payment_date: fd.get("payment_date"),
@@ -556,7 +553,7 @@ function bindSaleSection(container, car) {
         const fresh = await api.get(`/cars/${car.id}`);
         renderCarDetail(container, fresh);
       } catch (err) {
-        alert(err.message);
+        await UI.alert(err.message);
       }
     });
   }
@@ -564,7 +561,7 @@ function bindSaleSection(container, car) {
   container.querySelectorAll("[data-del-payment]").forEach((a) => {
     a.addEventListener("click", async (e) => {
       e.preventDefault();
-      if (!confirm("حذف هذه الدفعة؟")) return;
+      if (!(await UI.confirm("حذف هذه الدفعة؟", { danger: true }))) return;
       await api.del(`/payments/${a.dataset.delPayment}`);
       const fresh = await api.get(`/cars/${car.id}`);
       renderCarDetail(container, fresh);

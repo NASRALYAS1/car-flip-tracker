@@ -15,10 +15,28 @@ paymentRoutes.post("/", async (c) => {
     return c.json({ error: "تاريخ الدفعة مطلوب" }, 400);
   }
 
-  const sale = await c.env.DB.prepare(`SELECT id FROM sales WHERE id = ?`)
+  const sale = await c.env.DB.prepare(
+    `SELECT id, sale_price_usd_cents, discount_usd_cents, down_payment_usd_cents FROM sales WHERE id = ?`
+  )
     .bind(saleId)
-    .first();
+    .first<{
+      id: number;
+      sale_price_usd_cents: number;
+      discount_usd_cents: number;
+      down_payment_usd_cents: number | null;
+    }>();
   if (!sale) return c.json({ error: "عقد البيع غير موجود" }, 404);
+
+  const paidRow = await c.env.DB.prepare(
+    `SELECT COALESCE(SUM(amount_usd_cents), 0) AS total FROM installment_payments WHERE sale_id = ?`
+  )
+    .bind(saleId)
+    .first<{ total: number }>();
+  const totalPaid = (sale.down_payment_usd_cents || 0) + (paidRow?.total ?? 0);
+  const remaining = sale.sale_price_usd_cents - (sale.discount_usd_cents || 0) - totalPaid;
+  if (remaining <= 0) {
+    return c.json({ error: "هذا العقد مسدد بالكامل، ما تكدر تضيف دفعة جديدة عليه" }, 400);
+  }
 
   let amount;
   try {

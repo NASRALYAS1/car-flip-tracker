@@ -148,7 +148,7 @@ function renderPartners(container, users) {
   container.querySelectorAll("[data-deactivate-user]").forEach((a) => {
     a.addEventListener("click", async (e) => {
       e.preventDefault();
-      if (!confirm("تعطيل هذا الشريك؟ ما راح يكدر يسجل دخول، بس سجله التاريخي يبقى محفوظ.")) return;
+      if (!(await UI.confirm("تعطيل هذا الشريك؟ ما راح يكدر يسجل دخول، بس سجله التاريخي يبقى محفوظ.", { danger: true }))) return;
       try {
         await api.post(`/users/${a.dataset.deactivateUser}/deactivate`);
         await refresh();

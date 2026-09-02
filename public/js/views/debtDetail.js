@@ -72,7 +72,7 @@ Views.debtDetail = async function (container, id) {
         // cancelled — nothing to do
       }
     } else {
-      alert("المشاركة غير مدعومة بهذا المتصفح، انسخ النص يدوياً:\n\n" + text);
+      await UI.alert("المشاركة غير مدعومة بهذا المتصفح، انسخ النص يدوياً:\n\n" + text);
     }
   });
 
@@ -81,12 +81,12 @@ Views.debtDetail = async function (container, id) {
   });
 
   container.querySelector("#delete-btn").addEventListener("click", async () => {
-    if (!confirm("حذف هذا القيد؟")) return;
+    if (!(await UI.confirm("حذف هذا القيد؟", { danger: true }))) return;
     try {
       await api.del(`/debts/${id}`);
       window.location.hash = "#/debts";
     } catch (err) {
-      alert(err.message);
+      await UI.alert(err.message);
     }
   });
 };
