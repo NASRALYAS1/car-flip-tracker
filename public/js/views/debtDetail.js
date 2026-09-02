@@ -22,11 +22,7 @@ Views.debtDetail = async function (container, id) {
       <div class="type-badge">${businessName} — ${label}</div>
       <div class="amount">${primaryAmount}</div>
       <div class="amount-iqd">≈ ${secondaryAmount}</div>
-      <div class="flow">
-        <span>${entry.lender_name}</span>
-        <span class="arrow">←</span>
-        <span>${entry.borrower_name}</span>
-      </div>
+      <div class="flow">${debtFlowText(entry)}</div>
     </div>
 
     <div class="card">
@@ -51,7 +47,7 @@ Views.debtDetail = async function (container, id) {
   container.querySelector("#share-btn").addEventListener("click", async () => {
     const text = [
       `📋 ${businessName} — ${label}`,
-      `${entry.lender_name} ← ${entry.borrower_name}`,
+      debtFlowText(entry),
       `المبلغ: ${primaryAmount} (≈ ${secondaryAmount})`,
       `التاريخ: ${entry.entry_date}`,
       entry.notes ? `ملاحظات: ${entry.notes}` : null,

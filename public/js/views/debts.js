@@ -20,6 +20,18 @@ function latestEntryForPair(entries, userA, userB) {
   );
 }
 
+// A loan and its repayment use the SAME lender/borrower roles (the original
+// creditor/debtor), by design — that's what lets them net against each
+// other correctly. But that means "lender ← borrower" isn't the direction
+// cash actually moved in a repayment: the borrower is the one paying, back
+// to the lender. So the two entry types need different wording, not just a
+// different label prefix.
+function debtFlowText(e) {
+  return e.entry_type === "loan"
+    ? `${e.lender_name} أقرض ${e.borrower_name}`
+    : `${e.borrower_name} سدّد لـ ${e.lender_name}`;
+}
+
 function renderDebtEntries(entries) {
   if (!entries.length) return '<p style="color:var(--text-dim)">لا يوجد سجل بعد</p>';
   return entries
@@ -28,7 +40,7 @@ function renderDebtEntries(entries) {
       return `
     <div class="list-item" data-debt-id="${e.id}">
       <div>
-        <div class="main">${label}: ${e.lender_name} ← ${e.borrower_name}</div>
+        <div class="main">${label}: ${debtFlowText(e)}</div>
         <div class="sub">${e.entry_date}</div>
       </div>
       <div class="end">
@@ -187,7 +199,7 @@ function buildDebtsHistoryText(data) {
   lines.push("", "تفاصيل القيود:");
   for (const e of data.entries) {
     const label = e.entry_type === "loan" ? "سلفة" : "تسديد";
-    lines.push(`- ${e.entry_date} | ${label}: ${e.lender_name} ← ${e.borrower_name} | ${money.formatDualText(e.amount_usd_cents, e)}`);
+    lines.push(`- ${e.entry_date} | ${label}: ${debtFlowText(e)} | ${money.formatDualText(e.amount_usd_cents, e)}`);
   }
 
   return lines.join("\n");
