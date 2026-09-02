@@ -313,16 +313,19 @@ function saleSectionHtml(car) {
   const s = car.sale;
   const totalExpenses = car.expenses.reduce((sum, e) => sum + e.amount_usd_cents, 0);
   const totalCost = car.purchase_price_usd_cents + totalExpenses;
-  const profit = s.sale_price_usd_cents - totalCost;
+  const profit = s.sale_price_usd_cents - (s.discount_usd_cents || 0) - totalCost;
 
   let installmentHtml = "";
   if (s.sale_type === "installment") {
     const paid = car.installment_payments.reduce((sum, p) => sum + p.amount_usd_cents, 0);
     const totalPaid = (s.down_payment_usd_cents || 0) + paid;
-    const remaining = s.sale_price_usd_cents - totalPaid;
+    const discount = s.discount_usd_cents || 0;
+    const remaining = s.sale_price_usd_cents - discount - totalPaid;
     const isPaidOff = remaining <= 0;
+    // based on how much of the sale price is accounted for (paid + forgiven),
+    // not just cash collected, so a discounted settlement correctly shows 100%
     const pct = s.sale_price_usd_cents > 0
-      ? Math.min(100, Math.max(0, (totalPaid / s.sale_price_usd_cents) * 100))
+      ? Math.min(100, Math.max(0, ((s.sale_price_usd_cents - remaining) / s.sale_price_usd_cents) * 100))
       : 0;
 
     const paymentsHtml = car.installment_payments.length
@@ -356,6 +359,12 @@ function saleSectionHtml(car) {
         </div>
         <div class="card-row" style="margin-top:14px"><span class="label">المقدمة</span><span class="value">${money.formatUsd(s.down_payment_usd_cents || 0)}</span></div>
         <div class="card-row"><span class="label">القسط الشهري المخطط</span><span class="value">${money.formatUsd(s.planned_monthly_installment_usd_cents)}</span></div>
+        ${
+          discount > 0
+            ? `<div class="card-row"><span class="label">خصم عند التسوية${s.discount_date ? ` (${s.discount_date})` : ""}</span><span class="value" style="color:var(--accent-2)">${money.formatUsd(discount)}</span></div>
+               ${s.discount_notes ? `<div class="card-row"><span class="label">ملاحظات الخصم</span><span class="value">${s.discount_notes}</span></div>` : ""}`
+            : ""
+        }
       </div>
 
       <h2>سجل الدفعات</h2>
@@ -375,6 +384,26 @@ function saleSectionHtml(car) {
           <button type="submit" class="btn">حفظ الدفعة</button>
         </form>
       </div>
+
+      ${
+        !isPaidOff
+          ? `
+      <button class="btn secondary" id="toggle-settle-form" style="margin-bottom:16px">🏷️ تسوية نهائية بخصم (المشتري يريد يدفع أقل من الباقي)</button>
+      <div id="settle-form-wrap" class="hidden card">
+        <p style="margin:0 0 10px;color:var(--text-dim)">
+          الباقي الحالي: <strong style="color:var(--text)">${money.formatUsd(remaining)}</strong> —
+          اكتب المبلغ اللي راح تقبله الحين وتعتبر العقد منتهي، والباقي ينحسب خصم.
+        </p>
+        <form id="settle-form">
+          ${money.inputHtml("settle_amount", "المبلغ المقبول الآن")}
+          <div id="settle-discount-preview" style="font-weight:800;color:var(--accent-2);margin:-4px 0 14px"></div>
+          <div class="field"><label>التاريخ</label><input type="date" name="payment_date" value="${new Date().toISOString().slice(0, 10)}" required /></div>
+          <div class="field"><label>ملاحظات (سبب الخصم مثلاً)</label><input name="notes" placeholder="تسديد مبكر" /></div>
+          <button type="submit" class="btn">تأكيد التسوية والإغلاق</button>
+        </form>
+      </div>`
+          : ""
+      }
     `;
   }
 
@@ -449,6 +478,80 @@ function bindSaleSection(container, car) {
           payment_date: fd.get("payment_date"),
           received_by: Number(fd.get("received_by")),
           ...amountField,
+        });
+        const fresh = await api.get(`/cars/${car.id}`);
+        renderCarDetail(container, fresh);
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+  }
+
+  const toggleSettleBtn = container.querySelector("#toggle-settle-form");
+  if (toggleSettleBtn) {
+    toggleSettleBtn.addEventListener("click", () => {
+      container.querySelector("#settle-form-wrap").classList.toggle("hidden");
+    });
+
+    const settleForm = container.querySelector("#settle-form");
+    money.bindInputToggle(settleForm, "settle_amount");
+
+    const remainingUsdCents =
+      car.sale.sale_price_usd_cents - (car.sale.discount_usd_cents || 0) -
+      ((car.sale.down_payment_usd_cents || 0) + car.installment_payments.reduce((s, p) => s + p.amount_usd_cents, 0));
+
+    const previewEl = settleForm.querySelector("#settle-discount-preview");
+    const amountInput = settleForm.querySelector('[name="settle_amount_amount_display"]');
+    const updatePreview = () => {
+      const fd = new FormData(settleForm);
+      const field = money.readField(fd, "settle_amount");
+      if (!field) {
+        previewEl.textContent = "";
+        return;
+      }
+      const enteredUsdCents = field.settle_amount_currency === "IQD"
+        ? Math.round((field.settle_amount_amount / 100 / field.settle_amount_exchange_rate) * 100)
+        : field.settle_amount_amount;
+      const discountNow = remainingUsdCents - enteredUsdCents;
+      if (discountNow > 0) {
+        previewEl.textContent = `🏷️ الخصم: ${money.formatUsd(discountNow)}`;
+      } else if (discountNow === 0) {
+        previewEl.textContent = "بدون خصم — هذا يغطي كل الباقي بالضبط";
+      } else {
+        previewEl.textContent = "⚠️ هذا المبلغ أكبر من الباقي — استخدم زر (دفع الباقي بالكامل) بدلاً من هذا";
+      }
+    };
+    amountInput.addEventListener("input", updatePreview);
+    settleForm.querySelector('[data-money-currency="settle_amount"]').addEventListener("change", updatePreview);
+    settleForm.querySelector('[name="settle_amount_exchange_rate"]')?.addEventListener("input", updatePreview);
+
+    settleForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const fd = new FormData(settleForm);
+      const field = money.readField(fd, "settle_amount");
+      if (!field) return;
+      const enteredUsdCents = field.settle_amount_currency === "IQD"
+        ? Math.round((field.settle_amount_amount / 100 / field.settle_amount_exchange_rate) * 100)
+        : field.settle_amount_amount;
+      const discountNow = remainingUsdCents - enteredUsdCents;
+      if (discountNow <= 0) {
+        alert("هذا المبلغ يغطي كل الباقي أو أكثر — ما فيه خصم لتسويته، استخدم (دفع الباقي بالكامل) بدل هذا.");
+        return;
+      }
+      if (
+        !confirm(
+          `راح تقبل ${money.formatUsd(enteredUsdCents)} وتسوي خصم ${money.formatUsd(discountNow)} على الباقي، ويصير العقد مكتمل. أكيد؟`
+        )
+      ) {
+        return;
+      }
+      try {
+        await api.post(`/cars/${car.id}/sale/settle`, {
+          payment_date: fd.get("payment_date"),
+          notes: fd.get("notes") || null,
+          amount_amount: field.settle_amount_amount,
+          amount_currency: field.settle_amount_currency,
+          amount_exchange_rate: field.settle_amount_exchange_rate,
         });
         const fresh = await api.get(`/cars/${car.id}`);
         renderCarDetail(container, fresh);

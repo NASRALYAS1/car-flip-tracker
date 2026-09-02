@@ -158,6 +158,92 @@ saleRoutes.patch("/", async (c) => {
   return c.json(updated);
 });
 
+// Records a real payment that's *less* than the remaining balance and
+// forgives the shortfall as a discount, for when a buyer wants to settle
+// an installment plan early (often at a negotiated discount) instead of
+// finishing out the planned monthly schedule. The actual cash received is
+// still logged as a normal installment_payments row; only the gap between
+// that and what was technically owed gets recorded as a discount.
+saleRoutes.post("/settle", async (c) => {
+  const carId = Number(c.req.param("id"));
+  const body = await c.req.json<Record<string, unknown>>();
+
+  const sale = await c.env.DB.prepare(`SELECT * FROM sales WHERE car_id = ?`)
+    .bind(carId)
+    .first<Record<string, any>>();
+  if (!sale) return c.json({ error: "لا يوجد بيع لهذه السيارة" }, 404);
+  if (sale.sale_type !== "installment") {
+    return c.json({ error: "هذا الإجراء فقط لعقود التقسيط" }, 400);
+  }
+  if (!body.payment_date) {
+    return c.json({ error: "تاريخ الدفعة مطلوب" }, 400);
+  }
+
+  let amount;
+  try {
+    amount = parseMoneyField(body, "amount");
+  } catch (e) {
+    return c.json({ error: (e as Error).message }, 400);
+  }
+  if (amount.usdCents <= 0) {
+    return c.json({ error: "المبلغ يجب أن يكون أكبر من صفر" }, 400);
+  }
+
+  const paidRow = await c.env.DB.prepare(
+    `SELECT COALESCE(SUM(amount_usd_cents), 0) AS total FROM installment_payments WHERE sale_id = ?`
+  )
+    .bind(sale.id)
+    .first<{ total: number }>();
+  const totalPaid = (sale.down_payment_usd_cents || 0) + (paidRow?.total ?? 0);
+  const remaining = sale.sale_price_usd_cents - (sale.discount_usd_cents || 0) - totalPaid;
+
+  if (remaining <= 0) {
+    return c.json({ error: "ما فيه باقي على هذا العقد أصلاً" }, 400);
+  }
+  if (amount.usdCents >= remaining) {
+    return c.json(
+      { error: "هذا المبلغ يغطي كل الباقي — استخدم زر (دفع الباقي بالكامل) العادي بدون خصم" },
+      400
+    );
+  }
+
+  const discountNow = remaining - amount.usdCents;
+  const receivedBy = body.received_by ? Number(body.received_by) : c.get("userId");
+
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      `INSERT INTO installment_payments (
+         sale_id, payment_date, amount_amount, amount_currency,
+         amount_exchange_rate, amount_usd_cents, received_by, notes
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(
+      sale.id,
+      body.payment_date,
+      amount.amount,
+      amount.currency,
+      amount.exchangeRate,
+      amount.usdCents,
+      receivedBy,
+      body.notes ?? null
+    ),
+    c.env.DB.prepare(
+      `UPDATE sales SET discount_usd_cents = discount_usd_cents + ?, discount_notes = ?, discount_date = ? WHERE id = ?`
+    ).bind(discountNow, body.notes ?? null, body.payment_date, sale.id),
+  ]);
+
+  if (amount.currency === "IQD" && amount.exchangeRate) {
+    await c.env.DB.prepare(`UPDATE settings SET value = ? WHERE key = 'last_exchange_rate'`)
+      .bind(String(amount.exchangeRate))
+      .run();
+  }
+
+  const updatedSale = await c.env.DB.prepare(`SELECT * FROM sales WHERE id = ?`)
+    .bind(sale.id)
+    .first();
+
+  return c.json({ sale: updatedSale, discount_given_usd_cents: discountNow }, 201);
+});
+
 saleRoutes.delete("/", async (c) => {
   const carId = Number(c.req.param("id"));
 

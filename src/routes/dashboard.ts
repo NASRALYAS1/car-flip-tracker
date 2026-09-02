@@ -37,7 +37,7 @@ dashboardRoutes.get("/", async (c) => {
          LEFT JOIN installment_payments ip ON ip.sale_id = s.id
          WHERE s.sale_type = 'installment'
          GROUP BY s.id
-         HAVING (s.sale_price_usd_cents - s.down_payment_usd_cents - COALESCE(SUM(ip.amount_usd_cents), 0)) > 0
+         HAVING (s.sale_price_usd_cents - s.discount_usd_cents - s.down_payment_usd_cents - COALESCE(SUM(ip.amount_usd_cents), 0)) > 0
            AND julianday('now') - julianday(COALESCE(MAX(ip.payment_date), s.sale_date)) > 30`
       )
       .all<{ count: number }>(),

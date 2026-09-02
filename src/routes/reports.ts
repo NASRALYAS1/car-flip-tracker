@@ -10,7 +10,7 @@ reportsRoutes.get("/installments", async (c) => {
     `SELECT
        s.id AS sale_id, s.car_id, c.make, c.model, c.year,
        s.buyer_name, s.buyer_contact, s.sale_date,
-       s.sale_price_usd_cents, s.down_payment_usd_cents,
+       s.sale_price_usd_cents, s.down_payment_usd_cents, s.discount_usd_cents,
        s.planned_monthly_installment_usd_cents,
        MAX(ip.payment_date) AS last_payment_date,
        COALESCE(SUM(ip.amount_usd_cents), 0) AS paid_installments_usd_cents
@@ -25,7 +25,8 @@ reportsRoutes.get("/installments", async (c) => {
   const rows = (results ?? []).map((r) => {
     const totalPaid =
       Number(r.down_payment_usd_cents ?? 0) + Number(r.paid_installments_usd_cents ?? 0);
-    const remaining = Number(r.sale_price_usd_cents) - totalPaid;
+    const remaining =
+      Number(r.sale_price_usd_cents) - Number(r.discount_usd_cents ?? 0) - totalPaid;
     const plannedMonthly = Number(r.planned_monthly_installment_usd_cents ?? 0);
     const remainingInstallmentsEstimate =
       plannedMonthly > 0 ? Math.max(0, Math.ceil(remaining / plannedMonthly)) : null;
