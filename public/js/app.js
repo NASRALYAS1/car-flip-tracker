@@ -151,8 +151,26 @@ window.addEventListener("hashchange", router);
 window.addEventListener("DOMContentLoaded", init);
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js").catch(() => {});
+  // Without this, a newly-deployed version sits fully downloaded and ready
+  // in the background, but the already-open page keeps running the old
+  // cached code until it happens to reload twice — so updates silently
+  // don't show up (this bit us repeatedly testing this app). Reloading
+  // once, automatically, the moment the new version actually takes
+  // control closes that gap for good.
+  let refreshingForUpdate = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (refreshingForUpdate) return;
+    refreshingForUpdate = true;
+    window.location.reload();
+  });
+
+  window.addEventListener("load", async () => {
+    try {
+      const reg = await navigator.serviceWorker.register("/sw.js");
+      reg.update();
+    } catch {
+      // offline on first load, or registration failed — not fatal
+    }
   });
 }
 
