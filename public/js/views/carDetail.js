@@ -3,9 +3,24 @@ Views.carDetail = async function (container, id) {
   renderCarDetail(container, car);
 };
 
+// Once a car's sale is fully wrapped up, there's nothing left to *do* with
+// it — editing expenses/photos/the sale at that point would just quietly
+// change numbers behind an already-closed, already-reported deal. Cash
+// sales are settled the instant they're recorded; installment sales are
+// settled once nothing is left owing.
+function isSaleClosed(car) {
+  if (!car.sale) return false;
+  if (car.sale.sale_type === "cash") return true;
+  const paid = car.installment_payments.reduce((s, p) => s + p.amount_usd_cents, 0);
+  const totalPaid = (car.sale.down_payment_usd_cents || 0) + paid;
+  const remaining = car.sale.sale_price_usd_cents - (car.sale.discount_usd_cents || 0) - totalPaid;
+  return remaining <= 0;
+}
+
 function renderCarDetail(container, car) {
   const totalExpenses = car.expenses.reduce((s, e) => s + e.amount_usd_cents, 0);
   const runningCost = car.purchase_price_usd_cents + totalExpenses;
+  const closed = isSaleClosed(car);
 
   container.innerHTML = `
     <div class="topbar">
@@ -13,6 +28,7 @@ function renderCarDetail(container, car) {
       <h1>${car.make} ${car.model}</h1>
       <span class="badge ${car.status}">${CAR_STATUS_LABELS[car.status]}</span>
     </div>
+    ${closed ? `<div class="card" style="text-align:center;color:var(--green);font-weight:700">✅ صفقة مكتملة — عرض فقط</div>` : ""}
 
     ${chainHtml(car.chain, car.id)}
 
@@ -26,12 +42,21 @@ function renderCarDetail(container, car) {
       ${car.condition_notes ? `<p style="margin-top:8px;color:var(--text-dim)">${car.condition_notes}</p>` : ""}
     </div>
 
+    ${
+      car.photos.length || !closed
+        ? `
     <h2>الصور</h2>
     <div class="photo-grid" id="photo-grid">
       ${car.photos.map((p) => `<img src="/api/photos/${p.id}" data-photo-id="${p.id}" />`).join("")}
     </div>
-    <input type="file" id="photo-input" accept="image/*" capture="environment" class="hidden" />
-    <button class="btn secondary" id="add-photo-btn" style="margin-bottom:16px">+ إضافة صورة</button>
+    ${
+      !closed
+        ? `<input type="file" id="photo-input" accept="image/*" capture="environment" class="hidden" />
+           <button class="btn secondary" id="add-photo-btn" style="margin-bottom:16px">+ إضافة صورة</button>`
+        : ""
+    }`
+        : ""
+    }
 
     <h2>المصاريف</h2>
     <div class="card" id="expenses-card">
@@ -42,7 +67,7 @@ function renderCarDetail(container, car) {
                 (e) => `
         <div class="card-row" data-expense-id="${e.id}">
           <span class="label">${e.description} <span style="opacity:.6">(${e.expense_date})</span></span>
-          <span class="value">${money.formatUsd(e.amount_usd_cents)} <a href="#" data-edit-expense="${e.id}">✎</a> <a href="#" data-del-expense="${e.id}" style="color:var(--red)">✕</a></span>
+          <span class="value">${money.formatUsd(e.amount_usd_cents)}${closed ? "" : ` <a href="#" data-edit-expense="${e.id}">✎</a> <a href="#" data-del-expense="${e.id}" style="color:var(--red)">✕</a>`}</span>
         </div>`
               )
               .join("")
@@ -53,6 +78,9 @@ function renderCarDetail(container, car) {
         <span class="value">${money.formatUsd(runningCost)}</span>
       </div>
     </div>
+    ${
+      !closed
+        ? `
     ${
       appState.expensePresets.length
         ? `<div class="btn-row" style="flex-wrap:wrap;margin-bottom:10px">
@@ -73,9 +101,11 @@ function renderCarDetail(container, car) {
         <div class="field"><label>التاريخ</label><input type="date" name="expense_date" value="${new Date().toISOString().slice(0, 10)}" required /></div>
         <button type="submit" class="btn">حفظ المصروف</button>
       </form>
-    </div>
+    </div>`
+        : ""
+    }
 
-    ${saleSectionHtml(car)}
+    ${saleSectionHtml(car, closed)}
 
     ${car.status === "in_stock" ? actionsHtml(car.id) : ""}
     <div id="car-detail-msg"></div>
@@ -83,69 +113,77 @@ function renderCarDetail(container, car) {
 
   container.querySelector("[data-back]").addEventListener("click", () => (window.location.hash = "#/cars"));
 
-  container.querySelector("#add-photo-btn").addEventListener("click", () => {
-    container.querySelector("#photo-input").click();
-  });
-  container.querySelector("#photo-input").addEventListener("change", async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const fd = new FormData();
-    fd.append("photo", file);
-    try {
-      await api.post(`/cars/${car.id}/photos`, fd);
-      const fresh = await api.get(`/cars/${car.id}`);
-      renderCarDetail(container, fresh);
-    } catch (err) {
-      await UI.alert(err.message);
-    }
-  });
-  container.querySelectorAll("#photo-grid img").forEach((img) => {
-    img.addEventListener("click", async () => {
-      if (!(await UI.confirm("حذف هذه الصورة؟", { danger: true }))) return;
-      await api.del(`/photos/${img.dataset.photoId}`);
-      const fresh = await api.get(`/cars/${car.id}`);
-      renderCarDetail(container, fresh);
+  const addPhotoBtn = container.querySelector("#add-photo-btn");
+  if (addPhotoBtn) {
+    addPhotoBtn.addEventListener("click", () => {
+      container.querySelector("#photo-input").click();
     });
-  });
-
-  container.querySelector("#toggle-expense-form").addEventListener("click", () => {
-    container.querySelector("#expense-form-wrap").classList.toggle("hidden");
-  });
-  container.querySelectorAll("[data-preset-id]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const preset = appState.expensePresets.find((p) => String(p.id) === btn.dataset.presetId);
-      if (!preset) return;
-      const wrap = container.querySelector("#expense-form-wrap");
-      wrap.classList.remove("hidden");
-      const form = container.querySelector("#expense-form");
-      form.querySelector('[name="description"]').value = preset.description;
-      form.querySelector('[data-money-currency="amount"]').value = preset.default_currency;
-      const amountInput = form.querySelector('[name="amount_amount_display"]');
-      amountInput.value = money.formatWithCommas((preset.default_amount / 100).toFixed(2));
-      form.querySelector('[data-rate-row="amount"]').classList.toggle("show", preset.default_currency === "IQD");
-      amountInput.focus();
-      amountInput.select();
+    container.querySelector("#photo-input").addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const fd = new FormData();
+      fd.append("photo", file);
+      try {
+        await api.post(`/cars/${car.id}/photos`, fd);
+        const fresh = await api.get(`/cars/${car.id}`);
+        renderCarDetail(container, fresh);
+      } catch (err) {
+        await UI.alert(err.message);
+      }
     });
-  });
-  const expenseForm = container.querySelector("#expense-form");
-  money.bindInputToggle(expenseForm, "amount");
-  expenseForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const fd = new FormData(expenseForm);
-    const amountField = money.readField(fd, "amount");
-    if (!amountField) return;
-    try {
-      await api.post(`/cars/${car.id}/expenses`, {
-        description: fd.get("description"),
-        expense_date: fd.get("expense_date"),
-        ...amountField,
+  }
+  if (!closed) {
+    container.querySelectorAll("#photo-grid img").forEach((img) => {
+      img.addEventListener("click", async () => {
+        if (!(await UI.confirm("حذف هذه الصورة؟", { danger: true }))) return;
+        await api.del(`/photos/${img.dataset.photoId}`);
+        const fresh = await api.get(`/cars/${car.id}`);
+        renderCarDetail(container, fresh);
       });
-      const fresh = await api.get(`/cars/${car.id}`);
-      renderCarDetail(container, fresh);
-    } catch (err) {
-      await UI.alert(err.message);
-    }
-  });
+    });
+  }
+
+  const toggleExpenseBtn = container.querySelector("#toggle-expense-form");
+  if (toggleExpenseBtn) {
+    toggleExpenseBtn.addEventListener("click", () => {
+      container.querySelector("#expense-form-wrap").classList.toggle("hidden");
+    });
+    container.querySelectorAll("[data-preset-id]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const preset = appState.expensePresets.find((p) => String(p.id) === btn.dataset.presetId);
+        if (!preset) return;
+        const wrap = container.querySelector("#expense-form-wrap");
+        wrap.classList.remove("hidden");
+        const form = container.querySelector("#expense-form");
+        form.querySelector('[name="description"]').value = preset.description;
+        form.querySelector('[data-money-currency="amount"]').value = preset.default_currency;
+        const amountInput = form.querySelector('[name="amount_amount_display"]');
+        amountInput.value = money.formatWithCommas((preset.default_amount / 100).toFixed(2));
+        form.querySelector('[data-rate-row="amount"]').classList.toggle("show", preset.default_currency === "IQD");
+        amountInput.focus();
+        amountInput.select();
+      });
+    });
+    const expenseForm = container.querySelector("#expense-form");
+    money.bindInputToggle(expenseForm, "amount");
+    expenseForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const fd = new FormData(expenseForm);
+      const amountField = money.readField(fd, "amount");
+      if (!amountField) return;
+      try {
+        await api.post(`/cars/${car.id}/expenses`, {
+          description: fd.get("description"),
+          expense_date: fd.get("expense_date"),
+          ...amountField,
+        });
+        const fresh = await api.get(`/cars/${car.id}`);
+        renderCarDetail(container, fresh);
+      } catch (err) {
+        await UI.alert(err.message);
+      }
+    });
+  }
   container.querySelectorAll("[data-edit-expense]").forEach((a) => {
     a.addEventListener("click", (e) => {
       e.preventDefault();
@@ -299,7 +337,7 @@ function bindActions(container, car) {
   }
 }
 
-function saleSectionHtml(car) {
+function saleSectionHtml(car, closed) {
   if (car.status === "traded") {
     return `
       <div class="card">
@@ -338,7 +376,7 @@ function saleSectionHtml(car) {
             <div class="amt">${money.formatUsd(p.amount_usd_cents)}</div>
             <div class="date">${p.payment_date}</div>
           </div>
-          <a href="#" class="del" data-del-payment="${p.id}" title="حذف الدفعة">✕</a>
+          ${closed ? "" : `<a href="#" class="del" data-del-payment="${p.id}" title="حذف الدفعة">✕</a>`}
         </div>`
           )
           .join("")
@@ -401,7 +439,7 @@ function saleSectionHtml(car) {
           <button type="submit" class="btn">تأكيد التسوية والإغلاق</button>
         </form>
       </div>`
-          : `<div class="empty-state"><span class="emoji">✅</span>العقد مكتمل ومسدد بالكامل، ما فيه إمكانية لإضافة دفعات جديدة عليه.</div>`
+          : ""
       }
     `;
   }
@@ -410,7 +448,7 @@ function saleSectionHtml(car) {
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <h2 style="margin:0">البيع</h2>
-        <a href="#" id="edit-sale-btn">✎ تعديل</a>
+        ${closed ? "" : `<a href="#" id="edit-sale-btn">✎ تعديل</a>`}
       </div>
       <div class="card-row"><span class="label">تاريخ البيع</span><span class="value">${s.sale_date}</span></div>
       <div class="card-row"><span class="label">سعر البيع</span><span class="value">${money.formatUsd(s.sale_price_usd_cents)}</span></div>
