@@ -31,6 +31,11 @@ Views.settings = async function (container) {
     </div>
 
     <button class="btn danger" id="logout-btn" style="margin-top:16px">تسجيل خروج</button>
+
+    <p id="toggle-advanced" style="color:var(--text-faint);font-size:0.78rem;margin-top:28px;text-align:center;cursor:pointer">
+      ⚙️ خيارات متقدمة
+    </p>
+    <div id="advanced-section" class="hidden"></div>
   `;
 
   container.querySelector("#settings-form").addEventListener("submit", async (e) => {
@@ -65,7 +70,101 @@ Views.settings = async function (container) {
   });
 
   renderLockSection(container);
+
+  container.querySelector("#toggle-advanced").addEventListener("click", () => {
+    const section = container.querySelector("#advanced-section");
+    section.classList.toggle("hidden");
+    if (!section.classList.contains("hidden") && !section.dataset.loaded) {
+      section.dataset.loaded = "1";
+      renderAdvancedSection(section);
+    }
+  });
 };
+
+// Deliberately tucked away and collapsed by default — this is a
+// break-glass, once-in-the-app's-lifetime screen (restore from backup),
+// not something anyone should stumble into during routine use.
+async function renderAdvancedSection(section) {
+  section.innerHTML = '<p style="color:var(--text-dim);font-size:0.85rem">جاري التحميل...</p>';
+  let backups;
+  try {
+    backups = await api.get("/admin/backups");
+  } catch (err) {
+    section.innerHTML = `<div class="error-msg">${err.message}</div>`;
+    return;
+  }
+
+  const rows = backups.length
+    ? backups
+        .map((b, i) => {
+          const d = new Date(b.uploaded_at);
+          const label = d.toLocaleDateString("ar-EG", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+          const time = d.toLocaleTimeString("ar-EG", { hour: "numeric", minute: "2-digit" });
+          return `
+        <div class="card-row" data-backup-key="${b.key}">
+          <span class="label">${label} ${i === 0 ? "(الأحدث)" : ""}</span>
+          <span class="value" style="color:var(--text-dim);font-size:0.8rem">${time}</span>
+        </div>`;
+        })
+        .join("")
+    : '<p style="color:var(--text-dim)">ما فيه نسخ احتياطية بعد</p>';
+
+  section.innerHTML = `
+    <div class="card" style="border-color:var(--red-soft)">
+      <p style="margin:0 0 12px;color:var(--text-dim);font-size:0.85rem">
+        هذا القسم فقط لو صار خلل حقيقي وتحتاج ترجع البيانات لتاريخ سابق. الاستعادة تمسح كل شي انسجل بعد
+        التاريخ اللي تختاره (سيارات، مبيعات، مصاريف، دفعات، ديون) وترجعه لهذي النسخة. حسابات الشركاء
+        وكلمات المرور ورموز الاسترجاع ما تتأثر أبداً.
+      </p>
+      <div id="backup-list">${rows}</div>
+    </div>
+    <div id="restore-confirm-wrap"></div>
+  `;
+
+  section.querySelectorAll("[data-backup-key]").forEach((row) => {
+    row.style.cursor = "pointer";
+    row.addEventListener("click", () => {
+      renderRestoreConfirm(section, row.dataset.backupKey, row.querySelector(".label").textContent.trim());
+    });
+  });
+}
+
+function renderRestoreConfirm(section, key, label) {
+  const wrap = section.querySelector("#restore-confirm-wrap");
+  wrap.innerHTML = `
+    <div class="card" style="border-color:var(--red)">
+      <p style="margin:0 0 10px;font-weight:700">استعادة نسخة: ${label}</p>
+      <p style="margin:0 0 12px;color:var(--text-dim);font-size:0.85rem">
+        اكتب كلمة "استعادة" بالمربع تحت للتأكيد — هذا الإجراء ما ينرجع.
+      </p>
+      <input type="text" id="restore-confirm-input" placeholder="استعادة" style="margin-bottom:12px" />
+      <div id="restore-msg"></div>
+      <button class="btn danger" id="restore-confirm-btn" disabled>تأكيد الاستعادة</button>
+    </div>
+  `;
+
+  const input = wrap.querySelector("#restore-confirm-input");
+  const btn = wrap.querySelector("#restore-confirm-btn");
+  input.addEventListener("input", () => {
+    btn.disabled = input.value.trim() !== "استعادة";
+  });
+
+  btn.addEventListener("click", async () => {
+    btn.disabled = true;
+    btn.textContent = "جاري الاستعادة...";
+    try {
+      await api.post("/admin/restore", { key });
+      wrap.innerHTML = `
+        <div class="card" style="color:var(--green)">
+          تمت الاستعادة بنجاح. أعد فتح التطبيق الآن لترى البيانات المستعادة.
+        </div>`;
+    } catch (err) {
+      wrap.querySelector("#restore-msg").innerHTML = `<div class="error-msg">${err.message}</div>`;
+      btn.disabled = false;
+      btn.textContent = "تأكيد الاستعادة";
+    }
+  });
+}
 
 function renderLockSection(container) {
   const section = container.querySelector("#lock-section");

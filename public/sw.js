@@ -1,4 +1,4 @@
-const CACHE_NAME = "car-flip-shell-v22";
+const CACHE_NAME = "car-flip-shell-v23";
 const SHELL_FILES = [
   "/",
   "/index.html",
