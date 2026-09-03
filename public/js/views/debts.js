@@ -40,8 +40,8 @@ function renderDebtEntries(entries) {
       return `
     <div class="list-item" data-debt-id="${e.id}">
       <div>
-        <div class="main">${label}: ${debtFlowText(e)}</div>
-        <div class="sub">${e.entry_date}</div>
+        <div class="main">${label}: ${esc(debtFlowText(e))}</div>
+        <div class="sub">${esc(e.entry_date)}</div>
       </div>
       <div class="end">
         <div class="amt">${money.formatDual(e.amount_usd_cents, e)}</div>
@@ -55,14 +55,14 @@ function renderDebts(container, data) {
   const balanceCards = data.net_balances
     .map((b) => {
       if (b.net_usd_cents === 0) {
-        return `<div class="card"><p style="margin:0">لا يوجد رصيد مستحق بين ${userName(b.user_a)} و ${userName(b.user_b)}</p></div>`;
+        return `<div class="card"><p style="margin:0">لا يوجد رصيد مستحق بين ${esc(userName(b.user_a))} و ${esc(userName(b.user_b))}</p></div>`;
       }
       const creditor = b.net_usd_cents > 0 ? b.user_a : b.user_b;
       const debtor = b.net_usd_cents > 0 ? b.user_b : b.user_a;
       const latest = latestEntryForPair(data.entries, b.user_a, b.user_b);
       return `
       <div class="card">
-        <p style="margin:0"><strong>${userName(debtor)}</strong> مديون لـ <strong>${userName(creditor)}</strong></p>
+        <p style="margin:0"><strong>${esc(userName(debtor))}</strong> مديون لـ <strong>${esc(userName(creditor))}</strong></p>
         <p style="margin:4px 0 0;font-size:1.2rem;color:var(--amber)">${money.formatDual(Math.abs(b.net_usd_cents), latest)}</p>
       </div>`;
     })
@@ -81,10 +81,10 @@ function renderDebts(container, data) {
     <div id="debt-form-wrap" class="hidden card">
       <form id="debt-form">
         <div class="field"><label>الطرف الأول</label>
-          <select name="party_a">${activeUsers.map((u) => `<option value="${u.id}">${u.display_name}</option>`).join("")}</select>
+          <select name="party_a">${activeUsers.map((u) => `<option value="${u.id}">${esc(u.display_name)}</option>`).join("")}</select>
         </div>
         <div class="field"><label>الطرف الثاني</label>
-          <select name="party_b">${activeUsers.map((u, i) => `<option value="${u.id}" ${i === 1 ? "selected" : ""}>${u.display_name}</option>`).join("")}</select>
+          <select name="party_b">${activeUsers.map((u, i) => `<option value="${u.id}" ${i === 1 ? "selected" : ""}>${esc(u.display_name)}</option>`).join("")}</select>
         </div>
         <div class="field"><label>شنو صار؟</label>
           <select name="entry_type">
@@ -170,7 +170,7 @@ function renderDebts(container, data) {
       });
       await refresh();
     } catch (err) {
-      container.querySelector("#debts-msg").innerHTML = `<div class="error-msg">${err.message}</div>`;
+      container.querySelector("#debts-msg").innerHTML = `<div class="error-msg">${esc(err.message)}</div>`;
     }
   });
 }

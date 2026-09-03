@@ -7,7 +7,7 @@ Views.tradeForm = async function (container, carId) {
   container.innerHTML = `
     <div class="topbar">
       <span class="back" data-back>→</span>
-      <h1>تبديل ${car.make} ${car.model}</h1>
+      <h1>تبديل ${esc(car.make)} ${esc(car.model)}</h1>
     </div>
     <div id="form-error"></div>
 
@@ -91,7 +91,7 @@ Views.tradeForm = async function (container, carId) {
       const newCar = await api.post(`/cars/${carId}/trade`, payload);
       window.location.hash = `#/car/${newCar.id}`;
     } catch (err) {
-      container.querySelector("#form-error").innerHTML = `<div class="error-msg">${err.message}</div>`;
+      container.querySelector("#form-error").innerHTML = `<div class="error-msg">${esc(err.message)}</div>`;
     }
   });
 };

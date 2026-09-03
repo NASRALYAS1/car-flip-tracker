@@ -5,7 +5,7 @@ Views.saleForm = async function (container, carId) {
   container.innerHTML = `
     <div class="topbar">
       <span class="back" data-back>→</span>
-      <h1>بيع ${car.make} ${car.model}</h1>
+      <h1>بيع ${esc(car.make)} ${esc(car.model)}</h1>
     </div>
     <div id="form-error"></div>
 
@@ -105,7 +105,7 @@ Views.saleForm = async function (container, carId) {
       await api.post(`/cars/${carId}/sale`, payload);
       window.location.hash = `#/car/${carId}`;
     } catch (err) {
-      container.querySelector("#form-error").innerHTML = `<div class="error-msg">${err.message}</div>`;
+      container.querySelector("#form-error").innerHTML = `<div class="error-msg">${esc(err.message)}</div>`;
     }
   });
 };

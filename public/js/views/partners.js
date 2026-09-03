@@ -12,7 +12,7 @@ function renderPartners(container, users) {
     .map(
       (u) => `
     <div class="card-row" data-user-id="${u.id}">
-      <span class="label">${u.display_name} <span style="opacity:.6">(${u.username})</span></span>
+      <span class="label">${esc(u.display_name)} <span style="opacity:.6">(${esc(u.username)})</span></span>
       <span class="value">
         ${Number(u.profit_split_pct).toFixed(1)}%
         <a href="#" data-edit-user="${u.id}" style="margin-inline-start:8px">تعديل</a>
@@ -30,7 +30,7 @@ function renderPartners(container, users) {
         .map(
           (u) => `
         <div class="card-row" data-user-id="${u.id}">
-          <span class="label">${u.display_name} <span style="opacity:.6">(${u.username})</span></span>
+          <span class="label">${esc(u.display_name)} <span style="opacity:.6">(${esc(u.username)})</span></span>
           <span class="value"><a href="#" data-reactivate-user="${u.id}">تفعيل</a></span>
         </div>`
         )
@@ -58,7 +58,7 @@ function renderPartners(container, users) {
         ${active
           .map(
             (u) => `
-          <div class="field"><label>${u.display_name}</label>
+          <div class="field"><label>${esc(u.display_name)}</label>
             <input type="number" step="0.1" min="0" max="100" name="split_${u.id}" value="${Number(u.profit_split_pct).toFixed(1)}" required />
           </div>`
           )
@@ -124,7 +124,7 @@ function renderPartners(container, users) {
         container.querySelector("#partners-msg").innerHTML =
           '<div class="card" style="color:var(--green)">تم حفظ التوزيع</div>';
       } catch (err) {
-        container.querySelector("#partners-msg").innerHTML = `<div class="error-msg">${err.message}</div>`;
+        container.querySelector("#partners-msg").innerHTML = `<div class="error-msg">${esc(err.message)}</div>`;
       }
     });
   }
@@ -141,10 +141,10 @@ function renderPartners(container, users) {
       });
       await refresh();
       if (result.recovery_code) {
-        await UI.showRecoveryCode(result.recovery_code, { title: `🔑 رمز استرجاع ${result.display_name}` });
+        await UI.showRecoveryCode(result.recovery_code, { title: `🔑 رمز استرجاع ${esc(result.display_name)}` });
       }
     } catch (err) {
-      container.querySelector("#partners-msg").innerHTML = `<div class="error-msg">${err.message}</div>`;
+      container.querySelector("#partners-msg").innerHTML = `<div class="error-msg">${esc(err.message)}</div>`;
     }
   });
 
@@ -156,7 +156,7 @@ function renderPartners(container, users) {
         await api.post(`/users/${a.dataset.deactivateUser}/deactivate`);
         await refresh();
       } catch (err) {
-        container.querySelector("#partners-msg").innerHTML = `<div class="error-msg">${err.message}</div>`;
+        container.querySelector("#partners-msg").innerHTML = `<div class="error-msg">${esc(err.message)}</div>`;
       }
     });
   });
@@ -187,10 +187,10 @@ function openEditForm(container, user, refresh) {
   wrap.id = "edit-partner-wrap";
   wrap.className = "card";
   wrap.innerHTML = `
-    <h2>تعديل ${user.display_name}</h2>
+    <h2>تعديل ${esc(user.display_name)}</h2>
     <form id="edit-partner-form">
-      <div class="field"><label>الاسم</label><input name="display_name" value="${user.display_name}" required /></div>
-      <div class="field"><label>اسم المستخدم</label><input name="username" value="${user.username}" required /></div>
+      <div class="field"><label>الاسم</label><input name="display_name" value="${esc(user.display_name)}" required /></div>
+      <div class="field"><label>اسم المستخدم</label><input name="username" value="${esc(user.username)}" required /></div>
       <div class="field"><label>كلمة مرور جديدة (اتركها فارغة لعدم التغيير)</label><input type="password" name="password" minlength="6" autocomplete="new-password" /></div>
       <button type="submit" class="btn">حفظ</button>
     </form>
@@ -209,7 +209,7 @@ function openEditForm(container, user, refresh) {
       await api.patch(`/users/${user.id}`, payload);
       await refresh();
     } catch (err) {
-      container.querySelector("#partners-msg").innerHTML = `<div class="error-msg">${err.message}</div>`;
+      container.querySelector("#partners-msg").innerHTML = `<div class="error-msg">${esc(err.message)}</div>`;
     }
   });
 }

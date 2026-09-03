@@ -49,7 +49,7 @@ Views.setup = async function (container) {
       await router();
       setupPush();
     } catch (err) {
-      errorEl.innerHTML = `<div class="error-msg">${err.message}</div>`;
+      errorEl.innerHTML = `<div class="error-msg">${esc(err.message)}</div>`;
     }
   });
 };

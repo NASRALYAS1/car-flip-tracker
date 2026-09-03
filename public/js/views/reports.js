@@ -37,7 +37,7 @@ Views.reports = async function (container) {
       .map(
         (p) => `
       <div class="card-row">
-        <span class="label">🧑 حصة ${p.display_name}</span>
+        <span class="label">🧑 حصة ${esc(p.display_name)}</span>
         <span class="value">${money.formatUsd(p.share_usd_cents)}</span>
       </div>`
       )
@@ -49,8 +49,8 @@ Views.reports = async function (container) {
             (c) => `
       <div class="list-item" data-car-id="${c.car_id}">
         <div>
-          <div class="main">${c.make} ${c.model} ${c.year || ""}</div>
-          <div class="sub">${c.sale_date}${c.buyer_name ? ` · ${c.buyer_name}` : ""}</div>
+          <div class="main">${esc(c.make)} ${esc(c.model)} ${esc(c.year || "")}</div>
+          <div class="sub">${esc(c.sale_date)}${c.buyer_name ? ` · ${esc(c.buyer_name)}` : ""}</div>
         </div>
         <div class="end">
           <div class="amt" style="color:${c.profit_usd_cents >= 0 ? "var(--green)" : "var(--red)"}">${money.formatUsd(c.profit_usd_cents)}</div>
@@ -69,8 +69,8 @@ Views.reports = async function (container) {
             return `
       <div class="list-item" data-car-id="${a.car_id}">
         <div>
-          <div class="main">${a.make} ${a.model} ${a.year || ""}</div>
-          <div class="sub">اشتُريت بتاريخ ${a.purchase_date}</div>
+          <div class="main">${esc(a.make)} ${esc(a.model)} ${esc(a.year || "")}</div>
+          <div class="sub">اشتُريت بتاريخ ${esc(a.purchase_date)}</div>
         </div>
         <div class="end">
           <div class="amt">${money.formatUsd(runningCost)}</div>

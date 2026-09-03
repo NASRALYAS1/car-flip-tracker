@@ -6,8 +6,8 @@ Views.settings = async function (container) {
     <div id="settings-msg"></div>
 
     <form id="settings-form">
-      <div class="field"><label>اسم التجارة / المعرض</label><input name="business_name" value="${s.business_name || ""}" /></div>
-      <div class="field"><label>سعر الصرف الحالي (دينار لكل دولار)</label><input type="number" name="last_exchange_rate" value="${s.last_exchange_rate || ""}" /></div>
+      <div class="field"><label>اسم التجارة / المعرض</label><input name="business_name" value="${esc(s.business_name || "")}" /></div>
+      <div class="field"><label>سعر الصرف الحالي (دينار لكل دولار)</label><input type="number" name="last_exchange_rate" value="${esc(s.last_exchange_rate || "")}" /></div>
       <button type="submit" class="btn">حفظ الإعدادات</button>
     </form>
 
@@ -50,7 +50,7 @@ Views.settings = async function (container) {
       container.querySelector("#settings-msg").innerHTML =
         '<div class="card" style="color:var(--green)">تم الحفظ</div>';
     } catch (err) {
-      container.querySelector("#settings-msg").innerHTML = `<div class="error-msg">${err.message}</div>`;
+      container.querySelector("#settings-msg").innerHTML = `<div class="error-msg">${esc(err.message)}</div>`;
     }
   });
 
@@ -91,7 +91,7 @@ async function renderAdvancedSection(section) {
   try {
     backups = await api.get("/admin/backups");
   } catch (err) {
-    section.innerHTML = `<div class="error-msg">${err.message}</div>`;
+    section.innerHTML = `<div class="error-msg">${esc(err.message)}</div>`;
     return;
   }
 
@@ -160,7 +160,7 @@ function renderRestoreConfirm(section, key, label) {
           تمت الاستعادة بنجاح. أعد فتح التطبيق الآن لترى البيانات المستعادة.
         </div>`;
     } catch (err) {
-      wrap.querySelector("#restore-msg").innerHTML = `<div class="error-msg">${err.message}</div>`;
+      wrap.querySelector("#restore-msg").innerHTML = `<div class="error-msg">${esc(err.message)}</div>`;
       btn.disabled = false;
       btn.textContent = "تأكيد الاستعادة";
     }
@@ -269,7 +269,7 @@ function renderLockSection(container) {
         await AppLock.registerFingerprint();
         refresh();
       } catch (err) {
-        msg.innerHTML = `<div class="error-msg">تعذّر تفعيل البصمة: ${err.message}</div>`;
+        msg.innerHTML = `<div class="error-msg">تعذّر تفعيل البصمة: ${esc(err.message)}</div>`;
       }
     });
   }

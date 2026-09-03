@@ -100,6 +100,16 @@ usersRoutes.patch("/splits", async (c) => {
     return c.json({ error: "لازم تحدد نسبة لكل شريك فعّال، لا أكثر ولا أقل" }, 400);
   }
 
+  // Guard each share individually, not just the total: {A: -50, B: 150}
+  // sums to 100 and would otherwise pass, handing one partner a negative
+  // share of every profit split.
+  for (const v of Object.values(splits)) {
+    const pct = Number(v);
+    if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
+      return c.json({ error: "نسبة كل شريك لازم تكون بين 0 و 100" }, 400);
+    }
+  }
+
   const total = Object.values(splits).reduce((s, v) => s + Number(v), 0);
   if (Math.abs(total - 100) > 0.5) {
     return c.json({ error: `مجموع النسب لازم يكون 100% (الحالي: ${total.toFixed(1)}%)` }, 400);
@@ -136,12 +146,14 @@ usersRoutes.patch("/:id", async (c) => {
     sets.push("username = ?");
     values.push(v);
   }
+  let passwordChanged = false;
   if (typeof body.password === "string" && body.password) {
     if (body.password.length < 6) {
       return c.json({ error: "كلمة المرور يجب أن تكون 6 أحرف على الأقل" }, 400);
     }
     sets.push("password_hash = ?");
     values.push(await hashPassword(body.password));
+    passwordChanged = true;
   }
 
   if (sets.length === 0) return c.json({ error: "لا يوجد شي للتعديل" }, 400);
@@ -153,6 +165,14 @@ usersRoutes.patch("/:id", async (c) => {
       .run();
   } catch {
     return c.json({ error: "اسم المستخدم مستخدم من قبل" }, 409);
+  }
+
+  // Changing a password is how someone locks an intruder out. If the
+  // intruder's 30-day session cookie kept working afterwards, it wouldn't
+  // actually lock them out of anything -- so every existing session for
+  // that account dies with the old password.
+  if (passwordChanged) {
+    await c.env.DB.prepare(`DELETE FROM sessions WHERE user_id = ?`).bind(id).run();
   }
 
   const user = await c.env.DB.prepare(

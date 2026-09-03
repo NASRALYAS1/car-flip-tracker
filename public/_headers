@@ -1,0 +1,16 @@
+# Security headers for everything served from public/. Static assets are
+# handed straight to the browser by Cloudflare's asset server without ever
+# invoking the Worker, so headers set in src/index.ts never reach these
+# responses -- this file is what actually applies to real page loads. The
+# fallback wrapper in src/index.ts mirrors these values for the rare request
+# that does fall through to the Worker; keep the two in sync.
+#
+# script-src 'self' is the meaningful one: this app has no inline scripts and
+# no inline event handlers, so an injected <img onerror=...> or <script> can't
+# execute even if an unescaped value ever reaches innerHTML.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: same-origin
+  X-Frame-Options: DENY
+  Permissions-Policy: geolocation=(), microphone=(), payment=()

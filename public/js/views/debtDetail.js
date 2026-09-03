@@ -3,7 +3,7 @@ Views.debtDetail = async function (container, id) {
   try {
     entry = await api.get(`/debts/${id}`);
   } catch (err) {
-    container.innerHTML = `<div class="topbar"><span class="back" data-back>→</span><h1>القيد</h1></div><div class="error-msg">${err.message}</div>`;
+    container.innerHTML = `<div class="topbar"><span class="back" data-back>→</span><h1>القيد</h1></div><div class="error-msg">${esc(err.message)}</div>`;
     container.querySelector("[data-back]").addEventListener("click", () => (window.location.hash = "#/debts"));
     return;
   }
@@ -19,20 +19,20 @@ Views.debtDetail = async function (container, id) {
     </div>
 
     <div class="invoice-card">
-      <div class="type-badge">${businessName} — ${label}</div>
+      <div class="type-badge">${esc(businessName)} — ${label}</div>
       <div class="amount">${primaryAmount}</div>
       <div class="amount-iqd">≈ ${secondaryAmount}</div>
-      <div class="flow">${debtFlowText(entry)}</div>
+      <div class="flow">${esc(debtFlowText(entry))}</div>
     </div>
 
     <div class="card">
-      <div class="card-row"><span class="label">التاريخ</span><span class="value">${entry.entry_date}</span></div>
+      <div class="card-row"><span class="label">التاريخ</span><span class="value">${esc(entry.entry_date)}</span></div>
       <div class="card-row"><span class="label">النوع</span><span class="value">${label}</span></div>
-      <div class="card-row"><span class="label">من (الدائن)</span><span class="value">${entry.lender_name}</span></div>
-      <div class="card-row"><span class="label">إلى (المدين)</span><span class="value">${entry.borrower_name}</span></div>
-      ${entry.amount_currency === "IQD" ? `<div class="card-row"><span class="label">سعر الصرف وقتها</span><span class="value">${entry.amount_exchange_rate}</span></div>` : ""}
-      ${entry.notes ? `<div class="card-row"><span class="label">ملاحظات</span><span class="value">${entry.notes}</span></div>` : ""}
-      <div class="card-row"><span class="label">سجّلها</span><span class="value">${entry.recorded_by_name}</span></div>
+      <div class="card-row"><span class="label">من (الدائن)</span><span class="value">${esc(entry.lender_name)}</span></div>
+      <div class="card-row"><span class="label">إلى (المدين)</span><span class="value">${esc(entry.borrower_name)}</span></div>
+      ${entry.amount_currency === "IQD" ? `<div class="card-row"><span class="label">سعر الصرف وقتها</span><span class="value">${esc(entry.amount_exchange_rate)}</span></div>` : ""}
+      ${entry.notes ? `<div class="card-row"><span class="label">ملاحظات</span><span class="value">${esc(entry.notes)}</span></div>` : ""}
+      <div class="card-row"><span class="label">سجّلها</span><span class="value">${esc(entry.recorded_by_name)}</span></div>
     </div>
 
     <div class="btn-row no-print">

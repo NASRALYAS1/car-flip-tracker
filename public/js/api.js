@@ -1,5 +1,22 @@
 window.Views = {};
 
+// Every view here renders with template literals into innerHTML, so any
+// value that came from a person -- a car's make, a buyer's name, a note, a
+// partner's display name -- has to be escaped on the way in. Unescaped, a
+// string like `<img src=x onerror=...>` stored in any field becomes script
+// that runs inside another partner's logged-in session: it can read the
+// whole business, read that partner's private personal debts, or change
+// their password. Escape at the point of rendering, never trust the source.
+function esc(value) {
+  if (value === null || value === undefined) return "";
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 // For most routes, a 401 means the session died mid-use — bounce to login.
 // But these endpoints are themselves the "prove who you are" step, where a
 // 401 is an expected, on-page-recoverable outcome (wrong password/recovery

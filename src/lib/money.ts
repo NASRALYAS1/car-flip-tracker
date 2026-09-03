@@ -64,6 +64,18 @@ export function parseMoneyField(
   if (!Number.isFinite(amount)) {
     throw new Error(`${prefix}_amount is required and must be a number`);
   }
+  // A negative amount silently corrupts the books -- a negative expense
+  // inflates profit, a negative payment increases what's still owed. Nothing
+  // in this app legitimately submits one: the trade cash adjustment is
+  // entered positive and negated afterwards by direction, and discounts are
+  // derived server-side. The upper bound is a sanity guard against a
+  // fat-fingered or scripted absurd value, well above any real car price.
+  if (amount < 0) {
+    throw new Error("المبلغ لا يمكن أن يكون سالباً");
+  }
+  if (amount > 1_000_000_000_00) {
+    throw new Error("المبلغ كبير بشكل غير منطقي");
+  }
   if (currency !== "USD" && currency !== "IQD") {
     throw new Error(`${prefix}_currency must be USD or IQD`);
   }

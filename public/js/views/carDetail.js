@@ -41,7 +41,7 @@ function renderCarDetail(container, car) {
   container.innerHTML = `
     <div class="topbar">
       <span class="back" data-back>→</span>
-      <h1>${car.make} ${car.model}</h1>
+      <h1>${esc(car.make)} ${esc(car.model)}</h1>
       <span class="badge ${car.status}">${CAR_STATUS_LABELS[car.status]}</span>
     </div>
     ${closed ? `<div class="card" style="text-align:center;color:var(--green);font-weight:700">✅ صفقة مكتملة — عرض فقط</div>` : ""}
@@ -53,15 +53,15 @@ function renderCarDetail(container, car) {
         <h2 style="margin:0">بيانات السيارة</h2>
         ${closed ? "" : `<a href="#" id="edit-car-btn">✎ تعديل</a>`}
       </div>
-      <div class="card-row"><span class="label">تاريخ الشراء</span><span class="value">${car.purchase_date}</span></div>
+      <div class="card-row"><span class="label">تاريخ الشراء</span><span class="value">${esc(car.purchase_date)}</span></div>
       <div class="card-row"><span class="label">سعر الشراء</span><span class="value">${dualFor(car.purchase_price_usd_cents, car, "purchase_price")}</span></div>
-      ${car.year ? `<div class="card-row"><span class="label">سنة الصنع</span><span class="value">${car.year}</span></div>` : ""}
-      ${car.color ? `<div class="card-row"><span class="label">اللون</span><span class="value">${car.color}</span></div>` : ""}
-      ${car.mileage ? `<div class="card-row"><span class="label">العداد</span><span class="value">${car.mileage} كم</span></div>` : ""}
-      ${car.vin ? `<div class="card-row"><span class="label">رقم الشاصي (VIN)</span><span class="value">${car.vin}</span></div>` : ""}
-      ${car.seller_name ? `<div class="card-row"><span class="label">البائع</span><span class="value">${car.seller_name}</span></div>` : ""}
-      ${car.seller_contact ? `<div class="card-row"><span class="label">هاتف البائع</span><span class="value">${car.seller_contact}</span></div>` : ""}
-      ${car.condition_notes ? `<p style="margin-top:8px;color:var(--text-dim)">${car.condition_notes}</p>` : ""}
+      ${car.year ? `<div class="card-row"><span class="label">سنة الصنع</span><span class="value">${esc(car.year)}</span></div>` : ""}
+      ${car.color ? `<div class="card-row"><span class="label">اللون</span><span class="value">${esc(car.color)}</span></div>` : ""}
+      ${car.mileage ? `<div class="card-row"><span class="label">العداد</span><span class="value">${esc(car.mileage)} كم</span></div>` : ""}
+      ${car.vin ? `<div class="card-row"><span class="label">رقم الشاصي (VIN)</span><span class="value">${esc(car.vin)}</span></div>` : ""}
+      ${car.seller_name ? `<div class="card-row"><span class="label">البائع</span><span class="value">${esc(car.seller_name)}</span></div>` : ""}
+      ${car.seller_contact ? `<div class="card-row"><span class="label">هاتف البائع</span><span class="value">${esc(car.seller_contact)}</span></div>` : ""}
+      ${car.condition_notes ? `<p style="margin-top:8px;color:var(--text-dim)">${esc(car.condition_notes)}</p>` : ""}
     </div>
 
     ${
@@ -88,7 +88,7 @@ function renderCarDetail(container, car) {
               .map(
                 (e) => `
         <div class="card-row" data-expense-id="${e.id}">
-          <span class="label">${e.description} <span style="opacity:.6">(${e.expense_date})</span></span>
+          <span class="label">${esc(e.description)} <span style="opacity:.6">(${esc(e.expense_date)})</span></span>
           <span class="value">${money.formatDual(e.amount_usd_cents, e)}${closed ? "" : ` <a href="#" data-edit-expense="${e.id}">✎</a> <a href="#" data-del-expense="${e.id}" style="color:var(--red)">✕</a>`}</span>
         </div>`
               )
@@ -109,7 +109,7 @@ function renderCarDetail(container, car) {
             ${appState.expensePresets
               .map(
                 (p) =>
-                  `<button type="button" class="btn secondary" data-preset-id="${p.id}" style="flex:0 0 auto">${p.description}</button>`
+                  `<button type="button" class="btn secondary" data-preset-id="${p.id}" style="flex:0 0 auto">${esc(p.description)}</button>`
               )
               .join("")}
           </div>`
@@ -246,17 +246,17 @@ function openCarEditForm(container, car) {
   wrap.innerHTML = `
     <h2>تعديل بيانات السيارة</h2>
     <form id="edit-car-form">
-      <div class="field"><label>الماركة</label><input name="make" value="${car.make}" required /></div>
-      <div class="field"><label>الموديل</label><input name="model" value="${car.model}" required /></div>
+      <div class="field"><label>الماركة</label><input name="make" value="${esc(car.make)}" required /></div>
+      <div class="field"><label>الموديل</label><input name="model" value="${esc(car.model)}" required /></div>
       <div class="grid-2">
-        <div class="field"><label>سنة الصنع</label><input type="number" name="year" value="${car.year ?? ""}" /></div>
-        <div class="field"><label>اللون</label><input name="color" value="${car.color ?? ""}" /></div>
+        <div class="field"><label>سنة الصنع</label><input type="number" name="year" value="${esc(car.year ?? "")}" /></div>
+        <div class="field"><label>اللون</label><input name="color" value="${esc(car.color ?? "")}" /></div>
       </div>
-      <div class="field"><label>العداد (كم)</label><input type="number" name="mileage" value="${car.mileage ?? ""}" /></div>
-      <div class="field"><label>رقم الشاصي (VIN)</label><input name="vin" value="${car.vin ?? ""}" /></div>
-      <div class="field"><label>اسم البائع</label><input name="seller_name" value="${car.seller_name ?? ""}" /></div>
-      <div class="field"><label>هاتف البائع</label><input name="seller_contact" value="${car.seller_contact ?? ""}" /></div>
-      <div class="field"><label>ملاحظات الحالة</label><input name="condition_notes" value="${car.condition_notes ?? ""}" /></div>
+      <div class="field"><label>العداد (كم)</label><input type="number" name="mileage" value="${esc(car.mileage ?? "")}" /></div>
+      <div class="field"><label>رقم الشاصي (VIN)</label><input name="vin" value="${esc(car.vin ?? "")}" /></div>
+      <div class="field"><label>اسم البائع</label><input name="seller_name" value="${esc(car.seller_name ?? "")}" /></div>
+      <div class="field"><label>هاتف البائع</label><input name="seller_contact" value="${esc(car.seller_contact ?? "")}" /></div>
+      <div class="field"><label>ملاحظات الحالة</label><input name="condition_notes" value="${esc(car.condition_notes ?? "")}" /></div>
       <button type="submit" class="btn">حفظ</button>
     </form>
   `;
@@ -282,7 +282,7 @@ function openCarEditForm(container, car) {
       const fresh = await api.get(`/cars/${car.id}`);
       renderCarDetail(container, fresh);
     } catch (err) {
-      container.querySelector("#car-detail-msg").innerHTML = `<div class="error-msg">${err.message}</div>`;
+      container.querySelector("#car-detail-msg").innerHTML = `<div class="error-msg">${esc(err.message)}</div>`;
     }
   });
 }
@@ -297,9 +297,9 @@ function openExpenseEditForm(container, car, expense) {
   wrap.innerHTML = `
     <h2>تعديل المصروف</h2>
     <form id="edit-expense-form">
-      <div class="field"><label>الوصف</label><input name="description" value="${expense.description}" required /></div>
+      <div class="field"><label>الوصف</label><input name="description" value="${esc(expense.description)}" required /></div>
       ${money.inputHtml("amount", "المبلغ", { currency: expense.amount_currency })}
-      <div class="field"><label>التاريخ</label><input type="date" name="expense_date" value="${expense.expense_date}" required /></div>
+      <div class="field"><label>التاريخ</label><input type="date" name="expense_date" value="${esc(expense.expense_date)}" required /></div>
       <button type="submit" class="btn">حفظ</button>
     </form>
   `;
@@ -326,7 +326,7 @@ function openExpenseEditForm(container, car, expense) {
       const fresh = await api.get(`/cars/${car.id}`);
       renderCarDetail(container, fresh);
     } catch (err) {
-      container.querySelector("#car-detail-msg").innerHTML = `<div class="error-msg">${err.message}</div>`;
+      container.querySelector("#car-detail-msg").innerHTML = `<div class="error-msg">${esc(err.message)}</div>`;
     }
   });
 }
@@ -342,10 +342,10 @@ function openSaleEditForm(container, car) {
   wrap.innerHTML = `
     <h2>تعديل البيع</h2>
     <form id="edit-sale-form">
-      <div class="field"><label>تاريخ البيع</label><input type="date" name="sale_date" value="${s.sale_date}" required /></div>
+      <div class="field"><label>تاريخ البيع</label><input type="date" name="sale_date" value="${esc(s.sale_date)}" required /></div>
       ${money.inputHtml("sale_price", "سعر البيع الكلي", { currency: s.sale_price_currency })}
-      <div class="field"><label>اسم المشتري</label><input name="buyer_name" value="${s.buyer_name || ""}" /></div>
-      <div class="field"><label>هاتف المشتري</label><input name="buyer_contact" value="${s.buyer_contact || ""}" /></div>
+      <div class="field"><label>اسم المشتري</label><input name="buyer_name" value="${esc(s.buyer_name || "")}" /></div>
+      <div class="field"><label>هاتف المشتري</label><input name="buyer_contact" value="${esc(s.buyer_contact || "")}" /></div>
       ${
         s.sale_type === "installment"
           ? `<div class="field"><label>القسط الشهري المخطط (USD)</label><input type="number" step="0.01" min="0" name="planned_monthly" value="${(s.planned_monthly_installment_usd_cents / 100).toFixed(2)}" /></div>`
@@ -382,7 +382,7 @@ function openSaleEditForm(container, car) {
       const fresh = await api.get(`/cars/${car.id}`);
       renderCarDetail(container, fresh);
     } catch (err) {
-      container.querySelector("#car-detail-msg").innerHTML = `<div class="error-msg">${err.message}</div>`;
+      container.querySelector("#car-detail-msg").innerHTML = `<div class="error-msg">${esc(err.message)}</div>`;
     }
   });
 }
@@ -392,7 +392,7 @@ function chainHtml(chain, currentId) {
   const items = chain.cars
     .map((c, i) => {
       const arrow = i > 0 ? '<span class="arrow">←</span>' : "";
-      return `${arrow}<div class="chain-car ${c.id === currentId ? "current" : ""}" data-chain-id="${c.id}">${c.make} ${c.model}</div>`;
+      return `${arrow}<div class="chain-car ${c.id === currentId ? "current" : ""}" data-chain-id="${c.id}">${esc(c.make)} ${esc(c.model)}</div>`;
     })
     .join("");
   return `<div class="chain-strip">${items}</div>`;
@@ -477,7 +477,7 @@ function saleSectionHtml(car, closed) {
           <div class="icon">💵</div>
           <div class="info">
             <div class="amt">${money.formatDual(p.amount_usd_cents, p)}</div>
-            <div class="date">${p.payment_date} · استلمها ${userName(p.received_by)}</div>
+            <div class="date">${esc(p.payment_date)} · استلمها ${esc(userName(p.received_by))}</div>
           </div>
           ${closed ? "" : `<a href="#" class="del" data-del-payment="${p.id}" title="حذف الدفعة">✕</a>`}
         </div>`
@@ -506,7 +506,7 @@ function saleSectionHtml(car, closed) {
           .map(
             ([userId, total]) => `
           <div class="card-row">
-            <span class="label">🧑 ${userName(userId)}</span>
+            <span class="label">🧑 ${esc(userName(userId))}</span>
             <span class="value">${money.formatUsd(total)}</span>
           </div>`
           )
@@ -543,8 +543,8 @@ function saleSectionHtml(car, closed) {
         <div class="card-row"><span class="label">القسط الشهري المخطط</span><span class="value">${money.formatUsd(s.planned_monthly_installment_usd_cents)}</span></div>
         ${
           discount > 0
-            ? `<div class="card-row"><span class="label">خصم عند التسوية${s.discount_date ? ` (${s.discount_date})` : ""}</span><span class="value" style="color:var(--accent-2)">${money.formatUsd(discount)}</span></div>
-               ${s.discount_notes ? `<div class="card-row"><span class="label">ملاحظات الخصم</span><span class="value">${s.discount_notes}</span></div>` : ""}`
+            ? `<div class="card-row"><span class="label">خصم عند التسوية${s.discount_date ? ` (${esc(s.discount_date)})` : ""}</span><span class="value" style="color:var(--accent-2)">${money.formatUsd(discount)}</span></div>
+               ${s.discount_notes ? `<div class="card-row"><span class="label">ملاحظات الخصم</span><span class="value">${esc(s.discount_notes)}</span></div>` : ""}`
             : ""
         }
       </div>
@@ -567,7 +567,7 @@ function saleSectionHtml(car, closed) {
           ${money.inputHtml("amount", "مبلغ الدفعة")}
           <div class="field"><label>التاريخ</label><input type="date" name="payment_date" value="${new Date().toISOString().slice(0, 10)}" required /></div>
           <div class="field"><label>استلمها</label>
-            <select name="received_by">${appState.users.filter((u) => u.is_active).map((u) => `<option value="${u.id}">${u.display_name}</option>`).join("")}</select>
+            <select name="received_by">${appState.users.filter((u) => u.is_active).map((u) => `<option value="${u.id}">${esc(u.display_name)}</option>`).join("")}</select>
           </div>
           <button type="submit" class="btn">حفظ الدفعة</button>
         </form>
@@ -597,9 +597,9 @@ function saleSectionHtml(car, closed) {
         <h2 style="margin:0">البيع</h2>
         ${closed ? "" : `<a href="#" id="edit-sale-btn">✎ تعديل</a>`}
       </div>
-      <div class="card-row"><span class="label">تاريخ البيع</span><span class="value">${s.sale_date}</span></div>
+      <div class="card-row"><span class="label">تاريخ البيع</span><span class="value">${esc(s.sale_date)}</span></div>
       <div class="card-row"><span class="label">سعر البيع</span><span class="value">${dualFor(s.sale_price_usd_cents, s, "sale_price")}</span></div>
-      ${s.buyer_name ? `<div class="card-row"><span class="label">المشتري</span><span class="value">${s.buyer_name}</span></div>` : ""}
+      ${s.buyer_name ? `<div class="card-row"><span class="label">المشتري</span><span class="value">${esc(s.buyer_name)}</span></div>` : ""}
       <div class="card-row" style="border-top:1px solid var(--border);margin-top:8px;padding-top:10px">
         <span class="label">${car.profit.is_accrued ? "الربح المحقق حتى الآن" : "الربح"}</span>
         <span class="value" style="color:${profit >= 0 ? "var(--green)" : "var(--red)"}">${money.formatUsd(profit)}</span>

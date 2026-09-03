@@ -60,7 +60,7 @@ Views.addCarForm = async function (container) {
       const car = await api.post("/cars", payload);
       window.location.hash = `#/car/${car.id}`;
     } catch (err) {
-      container.querySelector("#form-error").innerHTML = `<div class="error-msg">${err.message}</div>`;
+      container.querySelector("#form-error").innerHTML = `<div class="error-msg">${esc(err.message)}</div>`;
     }
   });
 };

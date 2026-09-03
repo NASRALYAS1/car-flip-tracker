@@ -12,8 +12,8 @@ function renderInstallmentRows(rows) {
       return `
     <div class="list-item" data-car-id="${r.car_id}">
       <div>
-        <div class="main">${r.make} ${r.model} ${r.year || ""}</div>
-        <div class="sub">${r.buyer_name || "بدون اسم مشتري"}</div>
+        <div class="main">${esc(r.make)} ${esc(r.model)} ${esc(r.year || "")}</div>
+        <div class="sub">${esc(r.buyer_name || "بدون اسم مشتري")}</div>
       </div>
       <div class="end">
         <div class="amt">${money.formatUsd(r.remaining_usd_cents)}</div>

@@ -11,8 +11,8 @@ function renderPersonalDebtRows(debts) {
       return `
     <div class="list-item" data-debt-id="${d.id}" style="${d.is_settled ? "opacity:.55" : ""}">
       <div>
-        <div class="main">${d.person_name}${d.is_settled ? " ✅" : ""}</div>
-        <div class="sub">${dirLabel}${d.reason ? ` · ${d.reason}` : ""} · ${d.debt_date}</div>
+        <div class="main">${esc(d.person_name)}${d.is_settled ? " ✅" : ""}</div>
+        <div class="sub">${dirLabel}${d.reason ? ` · ${esc(d.reason)}` : ""} · ${esc(d.debt_date)}</div>
       </div>
       <div class="end">
         <div class="amt">${money.formatDual(d.amount_usd_cents, d)}</div>
@@ -132,7 +132,7 @@ function renderPersonalDebts(container, debts) {
       });
       await refresh();
     } catch (err) {
-      container.querySelector("#personal-debts-msg").innerHTML = `<div class="error-msg">${err.message}</div>`;
+      container.querySelector("#personal-debts-msg").innerHTML = `<div class="error-msg">${esc(err.message)}</div>`;
     }
   });
 }
@@ -145,15 +145,15 @@ function openPersonalDebtDetail(container, debt, refresh) {
   wrap.id = "debt-detail-wrap";
   wrap.className = "card";
   wrap.innerHTML = `
-    <h2>${debt.person_name}</h2>
+    <h2>${esc(debt.person_name)}</h2>
     <div class="card-row"><span class="label">الاتجاه</span><span class="value">${debt.direction === "i_owe_them" ? "أنا مدين له" : "هو مدين لي"}</span></div>
     <div class="card-row"><span class="label">المبلغ</span><span class="value">${money.formatDual(debt.amount_usd_cents, debt)}</span></div>
-    <div class="card-row"><span class="label">التاريخ</span><span class="value">${debt.debt_date}</span></div>
-    ${debt.person_phone ? `<div class="card-row"><span class="label">الهاتف</span><span class="value">${debt.person_phone}</span></div>` : ""}
-    ${debt.person_address ? `<div class="card-row"><span class="label">العنوان</span><span class="value">${debt.person_address}</span></div>` : ""}
-    ${debt.reason ? `<div class="card-row"><span class="label">السبب</span><span class="value">${debt.reason}</span></div>` : ""}
-    ${debt.notes ? `<div class="card-row"><span class="label">ملاحظات</span><span class="value">${debt.notes}</span></div>` : ""}
-    ${debt.is_settled ? `<div class="card-row"><span class="label">تم السداد</span><span class="value" style="color:var(--green)">${debt.settled_date || ""} ✅</span></div>` : ""}
+    <div class="card-row"><span class="label">التاريخ</span><span class="value">${esc(debt.debt_date)}</span></div>
+    ${debt.person_phone ? `<div class="card-row"><span class="label">الهاتف</span><span class="value">${esc(debt.person_phone)}</span></div>` : ""}
+    ${debt.person_address ? `<div class="card-row"><span class="label">العنوان</span><span class="value">${esc(debt.person_address)}</span></div>` : ""}
+    ${debt.reason ? `<div class="card-row"><span class="label">السبب</span><span class="value">${esc(debt.reason)}</span></div>` : ""}
+    ${debt.notes ? `<div class="card-row"><span class="label">ملاحظات</span><span class="value">${esc(debt.notes)}</span></div>` : ""}
+    ${debt.is_settled ? `<div class="card-row"><span class="label">تم السداد</span><span class="value" style="color:var(--green)">${esc(debt.settled_date || "")} ✅</span></div>` : ""}
     <div class="btn-row" style="margin-top:14px">
       <button class="btn secondary" id="pd-settle-btn">${debt.is_settled ? "إلغاء علامة السداد" : "✅ تحديد كمسدد"}</button>
       <button class="btn danger" id="pd-delete-btn">حذف</button>
@@ -172,7 +172,7 @@ function openPersonalDebtDetail(container, debt, refresh) {
   });
 
   wrap.querySelector("#pd-delete-btn").addEventListener("click", async () => {
-    if (!(await UI.confirm(`حذف دين ${debt.person_name}؟`, { danger: true }))) return;
+    if (!(await UI.confirm(`حذف دين ${esc(debt.person_name)}؟`, { danger: true }))) return;
     await api.del(`/personal-debts/${debt.id}`);
     wrap.remove();
     await refresh();

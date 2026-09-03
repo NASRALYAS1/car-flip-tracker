@@ -83,7 +83,13 @@ export async function restoreFromBackup(db: D1Database, bucket: R2Bucket, key: s
   for (const table of BACKUP_TABLES) {
     statements.push(db.prepare(`DELETE FROM ${table}`));
     for (const row of snapshot[table] as Record<string, unknown>[]) {
-      const columns = Object.keys(row);
+      // Column names come from a JSON file and get interpolated into SQL
+      // (they can't be bound as parameters), so they're validated as plain
+      // identifiers first. Today only our own backup job writes these files,
+      // but that's an assumption about the storage bucket, not a guarantee
+      // from this code -- and it would stop holding the day a backup can be
+      // uploaded or imported from anywhere else.
+      const columns = Object.keys(row).filter((col) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(col));
       if (!columns.length) continue;
       const placeholders = columns.map(() => "?").join(", ");
       statements.push(

@@ -15,8 +15,8 @@ function renderCarListItems(cars, status) {
       return `
     <div class="list-item" data-id="${car.id}">
       <div>
-        <div class="main">${car.make} ${car.model}</div>
-        <div class="sub">${sub || car.purchase_date}</div>
+        <div class="main">${esc(car.make)} ${esc(car.model)}</div>
+        <div class="sub">${esc(sub || car.purchase_date)}</div>
       </div>
       <div class="end">
         <div class="amt">${money.formatUsd(car.purchase_price_usd_cents)}</div>

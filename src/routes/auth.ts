@@ -158,6 +158,11 @@ authRoutes.post("/recover", async (c) => {
     .bind(newPasswordHash, newRecoveryCodeHash, user.id)
     .run();
 
+  // Recovery exists precisely for the case where someone else has your
+  // password. Leaving their existing session alive would defeat the whole
+  // point, so every session for this account is revoked here.
+  await c.env.DB.prepare(`DELETE FROM sessions WHERE user_id = ?`).bind(user.id).run();
+
   return c.json({ ok: true, new_recovery_code: newRecoveryCode });
 });
 

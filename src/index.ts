@@ -49,7 +49,35 @@ app.route("/api", api);
 
 // static assets (public/) are served automatically by the Workers Static
 // Assets binding for any request that doesn't match a route above.
-app.get("*", async (c) => c.env.ASSETS.fetch(c.req.raw));
+//
+// The CSP is a second line of defence behind escaping every rendered value:
+// this app has no inline scripts and no inline event handlers, so
+// script-src 'self' means an injected `<img onerror=...>` or `<script>`
+// simply won't run even if something unescaped ever slips through. Inline
+// styles are allowed because the views use style="..." attributes heavily.
+app.get("*", async (c) => {
+  const res = await c.env.ASSETS.fetch(c.req.raw);
+  const headers = new Headers(res.headers);
+  headers.set(
+    "Content-Security-Policy",
+    [
+      "default-src 'self'",
+      "script-src 'self'",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "font-src 'self' https://fonts.gstatic.com",
+      "img-src 'self' data: blob:",
+      "connect-src 'self'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "frame-ancestors 'none'",
+      "object-src 'none'",
+    ].join("; ")
+  );
+  headers.set("X-Content-Type-Options", "nosniff");
+  headers.set("Referrer-Policy", "same-origin");
+  headers.set("X-Frame-Options", "DENY");
+  return new Response(res.body, { status: res.status, headers });
+});
 
 export default {
   fetch: app.fetch,

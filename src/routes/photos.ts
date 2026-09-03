@@ -21,15 +21,20 @@ photoUploadRoutes.post("/", async (c) => {
   if (file.size > MAX_BYTES) {
     return c.json({ error: "حجم الصورة كبير جداً (الحد الأقصى 10 ميغابايت)" }, 400);
   }
-  if (file.type && !ALLOWED_TYPES.has(file.type)) {
+  // Checked without a `file.type &&` guard on purpose: that short-circuit
+  // let an upload declaring no type at all skip the allowlist entirely.
+  if (!ALLOWED_TYPES.has(file.type)) {
     return c.json({ error: "نوع الملف غير مدعوم" }, 400);
   }
 
   const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
   const key = `photos/${carId}/${randomHex(16)}.${ext}`;
 
+  // Store the type we resolved from our own allowlist rather than echoing
+  // back whatever the client declared, so nothing can be served later under
+  // a content type we never approved.
   await c.env.STORAGE.put(key, await file.arrayBuffer(), {
-    httpMetadata: { contentType: file.type || "application/octet-stream" },
+    httpMetadata: { contentType: file.type },
   });
 
   const result = await c.env.DB.prepare(
@@ -59,9 +64,17 @@ photoItemRoutes.get("/:id", async (c) => {
   const object = await c.env.STORAGE.get(photo.r2_key);
   if (!object) return c.notFound();
 
+  // Only ever serve a type from the allowlist, and tell the browser not to
+  // sniff past it -- otherwise a file stored under an unexpected type could
+  // be re-interpreted as HTML and run as script on this origin.
+  const storedType = object.httpMetadata?.contentType ?? "";
+  const safeType = ALLOWED_TYPES.has(storedType) ? storedType : "application/octet-stream";
+
   return new Response(object.body, {
     headers: {
-      "Content-Type": object.httpMetadata?.contentType ?? "application/octet-stream",
+      "Content-Type": safeType,
+      "X-Content-Type-Options": "nosniff",
+      "Content-Security-Policy": "default-src 'none'; sandbox",
       "Cache-Control": "private, max-age=86400",
     },
   });

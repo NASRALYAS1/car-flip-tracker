@@ -8,7 +8,7 @@ function renderExpensePresets(container, presets) {
     .map(
       (p) => `
     <div class="card-row" data-preset-id="${p.id}">
-      <span class="label">${p.description}</span>
+      <span class="label">${esc(p.description)}</span>
       <span class="value">
         ${p.default_currency === "USD" ? `$${(p.default_amount / 100).toFixed(2)}` : `${(p.default_amount / 100).toLocaleString("en-US")} د.ع`}
         <a href="#" data-edit-preset="${p.id}" style="margin-inline-start:8px">تعديل</a>
@@ -70,7 +70,7 @@ function renderExpensePresets(container, presets) {
       });
       await refresh();
     } catch (err) {
-      container.querySelector("#preset-msg").innerHTML = `<div class="error-msg">${err.message}</div>`;
+      container.querySelector("#preset-msg").innerHTML = `<div class="error-msg">${esc(err.message)}</div>`;
     }
   });
 
@@ -82,7 +82,7 @@ function renderExpensePresets(container, presets) {
         await api.del(`/expense-presets/${a.dataset.delPreset}`);
         await refresh();
       } catch (err) {
-        container.querySelector("#preset-msg").innerHTML = `<div class="error-msg">${err.message}</div>`;
+        container.querySelector("#preset-msg").innerHTML = `<div class="error-msg">${esc(err.message)}</div>`;
       }
     });
   });
@@ -104,9 +104,9 @@ function openPresetEditForm(container, preset, refresh) {
   wrap.id = "edit-preset-wrap";
   wrap.className = "card";
   wrap.innerHTML = `
-    <h2>تعديل ${preset.description}</h2>
+    <h2>تعديل ${esc(preset.description)}</h2>
     <form id="edit-preset-form">
-      <div class="field"><label>الوصف</label><input name="description" value="${preset.description}" required /></div>
+      <div class="field"><label>الوصف</label><input name="description" value="${esc(preset.description)}" required /></div>
       ${money.inputHtml("default_amount", "المبلغ الافتراضي", { currency: preset.default_currency })}
       <button type="submit" class="btn">حفظ</button>
     </form>
@@ -130,7 +130,7 @@ function openPresetEditForm(container, preset, refresh) {
       });
       await refresh();
     } catch (err) {
-      container.querySelector("#preset-msg").innerHTML = `<div class="error-msg">${err.message}</div>`;
+      container.querySelector("#preset-msg").innerHTML = `<div class="error-msg">${esc(err.message)}</div>`;
     }
   });
 }

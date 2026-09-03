@@ -42,7 +42,7 @@ function renderLoginForm(container, { prefillUsername = "", message = "" } = {})
       await router();
       setupPush();
     } catch (err) {
-      errorEl.innerHTML = `<div class="error-msg">${err.message}</div>`;
+      errorEl.innerHTML = `<div class="error-msg">${esc(err.message)}</div>`;
     }
   });
 
@@ -98,7 +98,7 @@ function renderRecoveryForm(container) {
       if (result.new_recovery_code) await UI.showRecoveryCode(result.new_recovery_code);
       renderLoginForm(container, { prefillUsername: username, message: "تم تغيير كلمة المرور — سجّل دخولك الآن" });
     } catch (err) {
-      errorEl.innerHTML = `<div class="error-msg">${err.message}</div>`;
+      errorEl.innerHTML = `<div class="error-msg">${esc(err.message)}</div>`;
     }
   });
 
