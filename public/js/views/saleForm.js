@@ -25,6 +25,19 @@ Views.saleForm = async function (container, carId) {
           <label>القسط الشهري المخطط (USD)</label>
           <input type="number" step="0.01" min="0" name="planned_monthly_installment_display" />
         </div>
+
+        <div class="card" style="margin-bottom:16px">
+          <p style="margin:0 0 10px;color:var(--text-dim);font-size:0.85rem">
+            📌 فقط إذا هذا البيع صار قبل ما تبدي تستخدم التطبيق والمشتري دافع أقساط من قبل —
+            اكتب مجموع اللي دفعه <strong>بعد المقدمة</strong> بمبلغ واحد، بدل ما تسجل كل دفعة لحال.
+            اتركه فارغ إذا هذا بيع جديد.
+          </p>
+          ${money.inputHtml("prior_paid", "المبلغ المدفوع سابقاً (اختياري)", { required: false })}
+          <div class="field">
+            <label>تاريخ آخر دفعة استلمتها</label>
+            <input type="date" name="prior_paid_date" value="${today}" />
+          </div>
+        </div>
       </div>
 
       <div class="field"><label>اسم المشتري</label><input name="buyer_name" /></div>
@@ -38,6 +51,7 @@ Views.saleForm = async function (container, carId) {
   container.querySelector("[data-back]").addEventListener("click", () => history.back());
   money.bindInputToggle(container, "sale_price");
   money.bindInputToggle(container, "down_payment");
+  money.bindInputToggle(container, "prior_paid");
 
   let saleType = "cash";
   const installmentFields = container.querySelector("#installment-fields");
@@ -79,6 +93,12 @@ Views.saleForm = async function (container, carId) {
         return;
       }
       payload.planned_monthly_installment_usd_cents = Math.round(parseFloat(monthly) * 100);
+
+      const priorField = money.readField(fd, "prior_paid");
+      if (priorField) {
+        Object.assign(payload, priorField);
+        payload.prior_paid_date = fd.get("prior_paid_date");
+      }
     }
 
     try {

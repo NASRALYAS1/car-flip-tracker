@@ -15,6 +15,17 @@ Views.setup = async function (container) {
         <div class="field"><label>كلمة المرور</label><input type="password" name="password" required autocomplete="new-password" minlength="6" /></div>
         <button type="submit" class="btn">إنشاء الحساب والبدء</button>
       </form>
+
+      <div class="card" style="margin-top:20px">
+        <p style="margin:0 0 8px;font-weight:700">عندك تجارة شغالة من قبل؟</p>
+        <p style="margin:0;color:var(--text-dim);font-size:0.85rem;line-height:1.7">
+          ما تحتاج تبدي من الصفر — التطبيق يقبل تواريخ قديمة بكل مكان:<br />
+          • السيارات اللي بالمخزون: ضيفها بتاريخ وسعر الشراء الحقيقي.<br />
+          • الديون بينك وبين شركائك: سجّلها بصفحة الديون بتاريخها الأصلي.<br />
+          • الأقساط اللي جارية: سجّل البيع بتاريخه، وبخانة
+          "المبلغ المدفوع سابقاً" اكتب مجموع اللي استلمته لحد الآن بمبلغ واحد.
+        </p>
+      </div>
     </div>`;
 
   const form = container.querySelector("#setup-form");

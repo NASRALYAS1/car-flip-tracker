@@ -93,6 +93,50 @@ saleRoutes.post("/", async (c) => {
       .run();
   }
 
+  // Onboarding an installment sale that was already part-way paid before
+  // this app existed: rather than making someone re-enter months of past
+  // payments one by one, they give a single lump total plus the date of the
+  // last payment they actually received. It's stored as one normal payment
+  // row, so every balance/progress/overdue calculation downstream treats it
+  // like any other payment with no special-casing — and the date keeps the
+  // overdue check honest instead of dating it to the original sale.
+  if (
+    saleType === "installment" &&
+    body.prior_paid_amount !== undefined &&
+    body.prior_paid_amount !== null &&
+    body.prior_paid_amount !== ""
+  ) {
+    let priorPaid;
+    try {
+      priorPaid = parseMoneyField(body, "prior_paid");
+    } catch (e) {
+      return c.json({ error: (e as Error).message }, 400);
+    }
+
+    if (priorPaid.usdCents > 0) {
+      if (!body.prior_paid_date) {
+        return c.json({ error: "تاريخ آخر دفعة سابقة مطلوب" }, 400);
+      }
+      await c.env.DB.prepare(
+        `INSERT INTO installment_payments (
+           sale_id, payment_date, amount_amount, amount_currency,
+           amount_exchange_rate, amount_usd_cents, received_by, notes
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+        .bind(
+          result.meta.last_row_id,
+          body.prior_paid_date,
+          priorPaid.amount,
+          priorPaid.currency,
+          priorPaid.exchangeRate,
+          priorPaid.usdCents,
+          c.get("userId"),
+          "دفعات سابقة قبل استخدام التطبيق"
+        )
+        .run();
+    }
+  }
+
   const sale = await c.env.DB.prepare(`SELECT * FROM sales WHERE id = ?`)
     .bind(result.meta.last_row_id)
     .first();
