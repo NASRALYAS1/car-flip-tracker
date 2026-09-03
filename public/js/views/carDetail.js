@@ -459,13 +459,54 @@ function saleSectionHtml(car, closed) {
           <div class="icon">💵</div>
           <div class="info">
             <div class="amt">${money.formatDual(p.amount_usd_cents, p)}</div>
-            <div class="date">${p.payment_date}</div>
+            <div class="date">${p.payment_date} · استلمها ${userName(p.received_by)}</div>
           </div>
           ${closed ? "" : `<a href="#" class="del" data-del-payment="${p.id}" title="حذف الدفعة">✕</a>`}
         </div>`
           )
           .join("")
       : '<p style="color:var(--text-dim);margin:0">ما فيه دفعات مسجلة بعد</p>';
+
+    // Who physically collected the cash matters for settling up between
+    // partners later — whoever took a payment is holding money that isn't
+    // only theirs. Totals come strictly from the "استلمها" recorded on each
+    // payment; the down payment has no receiver field of its own, so it's
+    // shown separately rather than silently credited to someone.
+    const collectedByPartner = new Map();
+    for (const p of car.installment_payments) {
+      collectedByPartner.set(
+        p.received_by,
+        (collectedByPartner.get(p.received_by) ?? 0) + p.amount_usd_cents
+      );
+    }
+    const collectionHtml = collectedByPartner.size
+      ? `
+      <div class="card">
+        <h2 style="margin:0 0 8px">💰 المستلَم من كل شريك</h2>
+        ${Array.from(collectedByPartner.entries())
+          .sort((a, b) => b[1] - a[1])
+          .map(
+            ([userId, total]) => `
+          <div class="card-row">
+            <span class="label">🧑 ${userName(userId)}</span>
+            <span class="value">${money.formatUsd(total)}</span>
+          </div>`
+          )
+          .join("")}
+        <div class="card-row" style="border-top:1px solid var(--border);margin-top:8px;padding-top:10px">
+          <span class="label">مجموع الأقساط المستلمة</span>
+          <span class="value">${money.formatUsd(paid)}</span>
+        </div>
+        ${
+          (s.down_payment_usd_cents || 0) > 0
+            ? `<p style="margin:10px 0 0;color:var(--text-dim);font-size:0.8rem">
+                 ملاحظة: المقدمة (${money.formatUsd(s.down_payment_usd_cents)}) مو محسوبة بالأرقام أعلاه —
+                 ما انسجل مين استلمها وقت البيع، سجّل البيع نفسه ${userName(s.sold_by)}.
+               </p>`
+            : ""
+        }
+      </div>`
+      : "";
 
     installmentHtml = `
       <div class="card">
@@ -492,6 +533,8 @@ function saleSectionHtml(car, closed) {
 
       <h2>سجل الدفعات</h2>
       <div class="card">${paymentsHtml}</div>
+
+      ${collectionHtml}
 
       ${
         !isPaidOff
