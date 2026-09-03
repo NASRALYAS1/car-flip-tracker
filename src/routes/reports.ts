@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../types";
 import { requireAuth } from "../middleware/requireAuth";
+import { computeProfit } from "../lib/profit";
 
 export const reportsRoutes = new Hono<AppEnv>();
 reportsRoutes.use("*", requireAuth);
@@ -58,12 +59,13 @@ reportsRoutes.get("/summary", async (c) => {
 
   const { results } = await c.env.DB.prepare(
     `SELECT c.id AS car_id, c.make, c.model, c.year, s.sale_date, s.buyer_name,
-            cp.purchase_price_usd_cents, cp.total_expenses_usd_cents,
-            cp.sale_price_usd_cents, s.discount_usd_cents, cp.profit_usd_cents
-     FROM car_profit cp
-     JOIN cars c ON c.id = cp.car_id
+            c.purchase_price_usd_cents,
+            (SELECT COALESCE(SUM(amount_usd_cents), 0) FROM expenses WHERE car_id = c.id) AS total_expenses_usd_cents,
+            s.sale_type, s.sale_price_usd_cents, s.discount_usd_cents, s.down_payment_usd_cents,
+            (SELECT COALESCE(SUM(amount_usd_cents), 0) FROM installment_payments WHERE sale_id = s.id) AS installments_paid_usd_cents
+     FROM cars c
      JOIN sales s ON s.car_id = c.id
-     WHERE cp.profit_usd_cents IS NOT NULL AND s.sale_date >= ? AND s.sale_date <= ?
+     WHERE s.sale_date >= ? AND s.sale_date <= ?
      ORDER BY s.sale_date DESC`
   )
     .bind(from, to)
@@ -76,15 +78,37 @@ reportsRoutes.get("/summary", async (c) => {
       buyer_name: string | null;
       purchase_price_usd_cents: number;
       total_expenses_usd_cents: number;
+      sale_type: string;
       sale_price_usd_cents: number;
       discount_usd_cents: number;
-      profit_usd_cents: number;
+      down_payment_usd_cents: number | null;
+      installments_paid_usd_cents: number;
     }>();
 
-  const cars = results ?? [];
-  const revenue = cars.reduce((s, r) => s + (r.sale_price_usd_cents - r.discount_usd_cents), 0);
+  const cars = (results ?? []).map((r) => {
+    const { realized_profit_usd_cents, target_profit_usd_cents, is_accrued } = computeProfit({
+      sale_type: r.sale_type,
+      sale_price_usd_cents: r.sale_price_usd_cents,
+      discount_usd_cents: r.discount_usd_cents || 0,
+      down_payment_usd_cents: r.down_payment_usd_cents || 0,
+      purchase_price_usd_cents: r.purchase_price_usd_cents,
+      total_expenses_usd_cents: r.total_expenses_usd_cents,
+      installments_paid_usd_cents: r.installments_paid_usd_cents,
+    });
+    return {
+      ...r,
+      profit_usd_cents: realized_profit_usd_cents,
+      target_profit_usd_cents,
+      is_accrued,
+    };
+  });
   const cost = cars.reduce((s, r) => s + r.purchase_price_usd_cents + r.total_expenses_usd_cents, 0);
   const profit = cars.reduce((s, r) => s + r.profit_usd_cents, 0);
+  // Derived from cost + profit (not sale_price - discount) so the three
+  // numbers on the reports page stay internally consistent — revenue
+  // recognized on the same accrual basis as profit, not the full sale
+  // price up front for a car still mid-installments.
+  const revenue = cost + profit;
 
   const { results: partnerRows } = await c.env.DB.prepare(
     `SELECT id, display_name, profit_split_pct FROM users WHERE is_active = 1 ORDER BY id`

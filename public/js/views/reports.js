@@ -54,6 +54,7 @@ Views.reports = async function (container) {
         </div>
         <div class="end">
           <div class="amt" style="color:${c.profit_usd_cents >= 0 ? "var(--green)" : "var(--red)"}">${money.formatUsd(c.profit_usd_cents)}</div>
+          ${c.is_accrued ? `<span class="badge in_stock">جاري التحصيل</span>` : ""}
         </div>
       </div>`
           )

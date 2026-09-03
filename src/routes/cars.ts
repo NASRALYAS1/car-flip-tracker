@@ -3,6 +3,7 @@ import type { AppEnv, CarStatus } from "../types";
 import { requireAuth } from "../middleware/requireAuth";
 import { parseMoneyField } from "../lib/money";
 import { getChainForCar } from "../lib/chain";
+import { computeProfit } from "../lib/profit";
 
 export const carsRoutes = new Hono<AppEnv>();
 carsRoutes.use("*", requireAuth);
@@ -101,13 +102,43 @@ carsRoutes.get("/:id", async (c) => {
 
   const chain = await getChainForCar(c.env.DB, id);
 
+  const expenseRows = expenses.results ?? [];
+  const totalExpenses = expenseRows.reduce(
+    (sum, e) => sum + Number((e as { amount_usd_cents: number }).amount_usd_cents),
+    0
+  );
+
+  let profit = null;
+  if (sale) {
+    const s = sale as {
+      sale_type: string;
+      sale_price_usd_cents: number;
+      discount_usd_cents: number;
+      down_payment_usd_cents: number | null;
+    };
+    const installmentsPaid = (payments as { amount_usd_cents: number }[]).reduce(
+      (sum, p) => sum + p.amount_usd_cents,
+      0
+    );
+    profit = computeProfit({
+      sale_type: s.sale_type,
+      sale_price_usd_cents: s.sale_price_usd_cents,
+      discount_usd_cents: s.discount_usd_cents || 0,
+      down_payment_usd_cents: s.down_payment_usd_cents || 0,
+      purchase_price_usd_cents: (car as { purchase_price_usd_cents: number }).purchase_price_usd_cents,
+      total_expenses_usd_cents: totalExpenses,
+      installments_paid_usd_cents: installmentsPaid,
+    });
+  }
+
   return c.json({
     ...car,
-    expenses: expenses.results ?? [],
+    expenses: expenseRows,
     photos: photos.results ?? [],
     sale: sale ?? null,
     installment_payments: payments,
     chain,
+    profit,
   });
 });
 

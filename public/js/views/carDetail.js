@@ -446,7 +446,11 @@ function saleSectionHtml(car, closed) {
   const s = car.sale;
   const totalExpenses = car.expenses.reduce((sum, e) => sum + e.amount_usd_cents, 0);
   const totalCost = car.purchase_price_usd_cents + totalExpenses;
-  const profit = s.sale_price_usd_cents - (s.discount_usd_cents || 0) - totalCost;
+  // Server-computed (src/lib/profit.ts): a cash sale or a paid-off/settled
+  // installment sale gets its exact final profit; an installment sale still
+  // being paid off gets a running estimate that accrues with each payment
+  // instead of booking the whole thing up front.
+  const profit = car.profit.realized_profit_usd_cents;
 
   let installmentHtml = "";
   if (s.sale_type === "installment") {
@@ -597,9 +601,17 @@ function saleSectionHtml(car, closed) {
       <div class="card-row"><span class="label">سعر البيع</span><span class="value">${dualFor(s.sale_price_usd_cents, s, "sale_price")}</span></div>
       ${s.buyer_name ? `<div class="card-row"><span class="label">المشتري</span><span class="value">${s.buyer_name}</span></div>` : ""}
       <div class="card-row" style="border-top:1px solid var(--border);margin-top:8px;padding-top:10px">
-        <span class="label">الربح</span>
+        <span class="label">${car.profit.is_accrued ? "الربح المحقق حتى الآن" : "الربح"}</span>
         <span class="value" style="color:${profit >= 0 ? "var(--green)" : "var(--red)"}">${money.formatUsd(profit)}</span>
       </div>
+      ${
+        car.profit.is_accrued
+          ? `<p style="margin:6px 0 0;color:var(--text-dim);font-size:0.8rem">
+               من إجمالي ربح متوقع ${money.formatUsd(car.profit.target_profit_usd_cents)} إذا اكتمل تسديد الأقساط —
+               يزيد كل ما توصل دفعة جديدة.
+             </p>`
+          : ""
+      }
     </div>
     ${installmentHtml}
   `;

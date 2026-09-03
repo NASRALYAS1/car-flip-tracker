@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../types";
 import { requireAuth } from "../middleware/requireAuth";
+import { computeProfit } from "../lib/profit";
 
 export const dashboardRoutes = new Hono<AppEnv>();
 dashboardRoutes.use("*", requireAuth);
@@ -8,10 +9,25 @@ dashboardRoutes.use("*", requireAuth);
 dashboardRoutes.get("/", async (c) => {
   const db = c.env.DB;
 
-  const [profitRow, inStockRow, soldThisMonthRow, partnersRow, overdueRow] = await Promise.all([
+  const [soldCarsRows, inStockRow, soldThisMonthRow, partnersRow, overdueRow] = await Promise.all([
     db
-      .prepare(`SELECT COALESCE(SUM(profit_usd_cents), 0) AS total FROM car_profit WHERE profit_usd_cents IS NOT NULL`)
-      .first<{ total: number }>(),
+      .prepare(
+        `SELECT c.purchase_price_usd_cents,
+                (SELECT COALESCE(SUM(amount_usd_cents), 0) FROM expenses WHERE car_id = c.id) AS total_expenses_usd_cents,
+                s.sale_type, s.sale_price_usd_cents, s.discount_usd_cents, s.down_payment_usd_cents,
+                (SELECT COALESCE(SUM(amount_usd_cents), 0) FROM installment_payments WHERE sale_id = s.id) AS installments_paid_usd_cents
+         FROM cars c
+         JOIN sales s ON s.car_id = c.id`
+      )
+      .all<{
+        purchase_price_usd_cents: number;
+        total_expenses_usd_cents: number;
+        sale_type: string;
+        sale_price_usd_cents: number;
+        discount_usd_cents: number;
+        down_payment_usd_cents: number | null;
+        installments_paid_usd_cents: number;
+      }>(),
     db
       .prepare(
         `SELECT COUNT(*) AS count, COALESCE(SUM(purchase_price_usd_cents), 0) AS value
@@ -43,7 +59,18 @@ dashboardRoutes.get("/", async (c) => {
       .all<{ count: number }>(),
   ]);
 
-  const totalProfit = profitRow?.total ?? 0;
+  const totalProfit = (soldCarsRows.results ?? []).reduce((sum, r) => {
+    const { realized_profit_usd_cents } = computeProfit({
+      sale_type: r.sale_type,
+      sale_price_usd_cents: r.sale_price_usd_cents,
+      discount_usd_cents: r.discount_usd_cents || 0,
+      down_payment_usd_cents: r.down_payment_usd_cents || 0,
+      purchase_price_usd_cents: r.purchase_price_usd_cents,
+      total_expenses_usd_cents: r.total_expenses_usd_cents,
+      installments_paid_usd_cents: r.installments_paid_usd_cents,
+    });
+    return sum + realized_profit_usd_cents;
+  }, 0);
   const partners = partnersRow.results ?? [];
   // normalize against whatever the active partners' percentages actually sum
   // to, rather than assuming exactly 100 — stays correct right after a
