@@ -77,18 +77,32 @@ export async function getChainForCar(db: D1Database, carId: number): Promise<Cha
     hops++;
   }
 
-  trades.sort((a, b) => a.trade_date.localeCompare(b.trade_date));
+  // Order by the actual outgoing -> incoming links, NOT by trade_date.
+  // Dates here are user-entered and often don't run in chain order (a trade
+  // recorded late and backdated, or two trades on the same day), and sorting
+  // by them used to leave a link whose outgoing car wasn't the current tip —
+  // that link got skipped and every car past it silently disappeared from
+  // the chain. Topology is exact, so walk that instead.
+  const tradeByOutgoing = new Map<number, ChainTrade>();
+  for (const t of trades) tradeByOutgoing.set(t.outgoing_car_id, t);
 
-  // order cars by their position in the chain (root -> ... -> tip)
   const orderedIds: number[] = [rootId];
-  for (const t of trades) {
-    if (t.outgoing_car_id === orderedIds[orderedIds.length - 1]) {
-      orderedIds.push(t.incoming_car_id);
-    }
+  const orderedTrades: ChainTrade[] = [];
+  const seen = new Set<number>([rootId]);
+  let cursor = rootId;
+  for (let i = 0; i < MAX_CHAIN_HOPS; i++) {
+    const next = tradeByOutgoing.get(cursor);
+    // the seen check is belt-and-braces against a cycle in bad data
+    if (!next || seen.has(next.incoming_car_id)) break;
+    orderedIds.push(next.incoming_car_id);
+    orderedTrades.push(next);
+    seen.add(next.incoming_car_id);
+    cursor = next.incoming_car_id;
   }
+
   const orderedCars = orderedIds
     .map((id) => carsById.get(id))
     .filter((c): c is ChainCar => !!c);
 
-  return { cars: orderedCars, trades };
+  return { cars: orderedCars, trades: orderedTrades };
 }
