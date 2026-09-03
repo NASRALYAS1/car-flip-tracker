@@ -368,11 +368,19 @@ label { display: block; font-size: 0.82rem; color: var(--text-dim); margin-botto
   font-weight: 600;
   white-space: nowrap;
   box-shadow: var(--shadow-card);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
 }
+.chain-strip .chain-car:not(.current):active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+/* the car you're already looking at isn't a link anywhere */
 .chain-strip .chain-car.current {
   border-color: var(--accent);
   color: var(--accent);
   background: var(--accent-soft);
+  cursor: default;
 }
 .chain-strip .arrow { color: var(--text-faint); font-size: 0.9rem; flex-shrink: 0; }
 

@@ -231,6 +231,7 @@ function renderCarDetail(container, car) {
     });
   });
 
+  bindChainStrip(container, car);
   bindActions(container, car);
   bindSaleSection(container, car);
 }
@@ -405,6 +406,19 @@ function actionsHtml(id) {
     </div>
     <button class="btn secondary" id="archive-btn" style="margin-top:10px">أرشفة السيارة</button>
   `;
+}
+
+// The chain strip renders every car in a trade chain, but tapping one did
+// nothing — the data-chain-id hook was there with no listener behind it.
+// Jumping between links in a chain is the whole reason to show the strip.
+function bindChainStrip(container, car) {
+  container.querySelectorAll("[data-chain-id]").forEach((el) => {
+    const id = Number(el.dataset.chainId);
+    if (id === car.id) return; // already here
+    el.addEventListener("click", () => {
+      window.location.hash = `#/car/${id}`;
+    });
+  });
 }
 
 function bindActions(container, car) {
