@@ -13,6 +13,7 @@ Views.settings = async function (container) {
 
     <a href="#/partners" class="btn secondary" style="margin-top:16px">👥 إدارة الشركاء</a>
     <a href="#/expense-presets" class="btn secondary" style="margin-top:10px">🧾 قوالب المصاريف الجاهزة</a>
+    <a href="#/personal-debts" class="btn secondary" style="margin-top:10px">🔒 ديوني الشخصية (خاص بيك)</a>
     <p style="color:var(--text-dim);font-size:0.8rem;margin:10px 2px 0">
       💾 يتم أخذ نسخة احتياطية تلقائياً كل ليلة، بدون أي إجراء منك.
     </p>

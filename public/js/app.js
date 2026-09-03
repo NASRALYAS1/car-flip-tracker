@@ -74,6 +74,8 @@ async function router() {
         return await Views.debtDetail(appEl, Number(params[0]));
       case "reports":
         return await Views.reports(appEl);
+      case "personal-debts":
+        return await Views.personalDebts(appEl);
       case "settings":
         return await Views.settings(appEl);
       case "partners":
