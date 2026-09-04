@@ -65,6 +65,12 @@ Views.settings = async function (container) {
 
   container.querySelector("#logout-btn").addEventListener("click", async () => {
     await api.post("/auth/logout");
+    // Drop the offline copy of this partner's data — the next person to log
+    // in on this device must not be able to read it (their private personal
+    // debts above all) out of the cache.
+    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage("clear-api-cache");
+    }
     appState.user = null;
     window.location.hash = "#/login";
     router();

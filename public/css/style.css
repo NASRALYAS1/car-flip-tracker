@@ -565,3 +565,28 @@ label { display: block; font-size: 0.82rem; color: var(--text-dim); margin-botto
 
 ::-webkit-scrollbar { height: 0; width: 6px; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+
+/* Connection state banner — sits above the bottom nav so it never covers
+   the nav itself, and only takes space when there's something to say. */
+.connection-banner {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--nav-height) + env(safe-area-inset-bottom));
+  z-index: 9;
+  padding: 8px 14px;
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.connection-banner.hidden { display: none; }
+.connection-banner.offline {
+  background: var(--amber-soft);
+  color: #fcd34d;
+  border-top: 1px solid #fcd34d55;
+}
+.connection-banner.syncing {
+  background: #1e3a8a4d;
+  color: #7dc2ff;
+  border-top: 1px solid #7dc2ff55;
+}

@@ -52,6 +52,9 @@ async function router() {
   });
 
   showSpinner();
+  // Keep the banner honest on every view change, not just on connect/
+  // disconnect events — queueing something offline changes what it should say.
+  if (typeof renderConnectionBanner === "function") renderConnectionBanner();
   try {
     switch (route) {
       case "dashboard":
@@ -125,6 +128,8 @@ async function init() {
   }
 
   await router();
+  renderConnectionBanner();
+  syncPending();
 
   if (appState.user) setupPush();
 }
@@ -150,6 +155,41 @@ document.addEventListener("visibilitychange", async () => {
     lockCheckInFlight = false;
   }
 });
+
+// Offline state: a small persistent banner, because the difference between
+// "this failed" and "you have no signal" matters when someone is standing on
+// a lot trying to record something.
+function renderConnectionBanner() {
+  let banner = document.getElementById("connection-banner");
+  if (!banner) {
+    banner = document.createElement("div");
+    banner.id = "connection-banner";
+    document.body.appendChild(banner);
+  }
+
+  const pending = typeof Offline !== "undefined" ? Offline.pendingCount() : 0;
+  if (navigator.onLine) {
+    banner.className = pending ? "connection-banner syncing" : "connection-banner hidden";
+    banner.textContent = pending ? `🔄 جاري رفع ${pending} تغيير محفوظ بالجهاز...` : "";
+  } else {
+    banner.className = "connection-banner offline";
+    banner.textContent = pending
+      ? `📴 بدون اتصال — ${pending} تغيير محفوظ بالجهاز راح ينرفع تلقائياً`
+      : "📴 بدون اتصال — تكدر تشوف معلوماتك، بس التسجيل يحتاج اتصال";
+  }
+}
+
+async function syncPending() {
+  if (typeof Offline === "undefined" || !navigator.onLine) return;
+  renderConnectionBanner();
+  const { synced } = await Offline.flush();
+  renderConnectionBanner();
+  // Re-render so anything that just synced loses its "pending" marker.
+  if (synced > 0 && parseHash().route === "personal-debts") await router();
+}
+
+window.addEventListener("online", syncPending);
+window.addEventListener("offline", renderConnectionBanner);
 
 window.addEventListener("hashchange", router);
 window.addEventListener("DOMContentLoaded", init);

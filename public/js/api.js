@@ -38,7 +38,20 @@ const api = {
       opts.body = JSON.stringify(body);
     }
 
-    const res = await fetch(`/api${path}`, opts);
+    let res;
+    try {
+      res = await fetch(`/api${path}`, opts);
+    } catch (networkErr) {
+      // A write with no connection: say so plainly instead of surfacing a
+      // raw "Failed to fetch". Reads don't reach here — the service worker
+      // answers those from the offline copy.
+      const offlineError = new Error(
+        "ما في اتصال بالإنترنت — هذي العملية تحتاج اتصال. جرّب مرة ثانية لمن يرجع الاتصال."
+      );
+      offlineError.isOffline = true;
+      throw offlineError;
+    }
+
     if (res.status === 401 && !AUTH_ATTEMPT_PATHS.includes(path)) {
       window.location.hash = "#/login";
       throw new Error("غير مصرح");
@@ -56,7 +69,12 @@ const api = {
 
     if (!res.ok) {
       const message = (data && data.error) || "حدث خطأ غير متوقع";
-      throw new Error(message);
+      const err = new Error(message);
+      // Carried so the sync queue can tell a server rejection (4xx — retrying
+      // forever won't help) apart from a connection problem (retry later).
+      err.status = res.status;
+      err.isOffline = res.status === 503 && !!(data && data.offline);
+      throw err;
     }
     return data;
   },

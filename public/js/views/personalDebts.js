@@ -1,6 +1,18 @@
 Views.personalDebts = async function (container) {
-  const debts = await api.get("/personal-debts");
-  renderPersonalDebts(container, debts);
+  // Anything still queued from an offline session goes up first, so the
+  // list below reflects the server rather than fighting with the queue.
+  await Offline.flush();
+
+  let serverDebts = [];
+  let offlineOnly = false;
+  try {
+    serverDebts = await api.get("/personal-debts");
+  } catch (err) {
+    // No connection and nothing cached — still show whatever is queued
+    // locally rather than an error page.
+    offlineOnly = true;
+  }
+  renderPersonalDebts(container, Offline.applyTo(serverDebts), offlineOnly);
 };
 
 function renderPersonalDebtRows(debts) {
@@ -11,7 +23,7 @@ function renderPersonalDebtRows(debts) {
       return `
     <div class="list-item" data-debt-id="${d.id}" style="${d.is_settled ? "opacity:.55" : ""}">
       <div>
-        <div class="main">${esc(d.person_name)}${d.is_settled ? " ✅" : ""}</div>
+        <div class="main">${esc(d.person_name)}${d.is_settled ? " ✅" : ""}${d._pending ? ' <span class="badge in_stock">⏳ بانتظار المزامنة</span>' : ""}</div>
         <div class="sub">${dirLabel}${d.reason ? ` · ${esc(d.reason)}` : ""} · ${esc(d.debt_date)}</div>
       </div>
       <div class="end">
@@ -22,7 +34,7 @@ function renderPersonalDebtRows(debts) {
     .join("");
 }
 
-function renderPersonalDebts(container, debts) {
+function renderPersonalDebts(container, debts, offlineOnly = false) {
   const active = debts.filter((d) => !d.is_settled);
   const totalTheyOweMe = active
     .filter((d) => d.direction === "they_owe_me")
@@ -39,6 +51,15 @@ function renderPersonalDebts(container, debts) {
     <p style="color:var(--text-dim);font-size:0.85rem;margin-top:-8px">
       هذه الصفحة خاصة بيك بس — باقي الشركاء ما يشوفونها ولا يقدرون يوصلونها. غير مرتبطة بحسابات التجارة أو تقسيم الأرباح.
     </p>
+    ${
+      offlineOnly
+        ? `<div class="card" style="border-color:var(--amber)">
+             <p style="margin:0;font-size:0.85rem">
+               📴 بدون اتصال — تكدر تضيف ديون هسه وتنحفظ بالجهاز، وتنرفع تلقائياً لمن يرجع الاتصال.
+             </p>
+           </div>`
+        : ""
+    }
 
     <div class="grid-2">
       <div class="stat">
@@ -83,8 +104,14 @@ function renderPersonalDebts(container, debts) {
   });
 
   async function refresh() {
-    const fresh = await api.get("/personal-debts");
-    renderPersonalDebts(container, fresh);
+    let fresh = [];
+    let offline = false;
+    try {
+      fresh = await api.get("/personal-debts");
+    } catch {
+      offline = true;
+    }
+    renderPersonalDebts(container, Offline.applyTo(fresh), offline);
   }
 
   function bindRowClicks() {
@@ -119,19 +146,31 @@ function renderPersonalDebts(container, debts) {
     const fd = new FormData(form);
     const amountField = money.readField(fd, "amount");
     if (!amountField) return;
+    const payload = {
+      person_name: fd.get("person_name"),
+      direction: fd.get("direction"),
+      debt_date: fd.get("debt_date"),
+      person_phone: fd.get("person_phone") || null,
+      person_address: fd.get("person_address") || null,
+      reason: fd.get("reason") || null,
+      notes: fd.get("notes") || null,
+      ...amountField,
+    };
     try {
-      await api.post("/personal-debts", {
-        person_name: fd.get("person_name"),
-        direction: fd.get("direction"),
-        debt_date: fd.get("debt_date"),
-        person_phone: fd.get("person_phone") || null,
-        person_address: fd.get("person_address") || null,
-        reason: fd.get("reason") || null,
-        notes: fd.get("notes") || null,
-        ...amountField,
-      });
+      if (Offline.isOffline()) {
+        Offline.queueCreate(payload);
+      } else {
+        await api.post("/personal-debts", payload);
+      }
       await refresh();
     } catch (err) {
+      // Lost the connection mid-save: keep it locally rather than losing
+      // what was just typed in.
+      if (err.isOffline) {
+        Offline.queueCreate(payload);
+        await refresh();
+        return;
+      }
       container.querySelector("#personal-debts-msg").innerHTML = `<div class="error-msg">${esc(err.message)}</div>`;
     }
   });
@@ -166,14 +205,39 @@ function openPersonalDebtDetail(container, debt, refresh) {
   wrap.querySelector("#pd-close-btn").addEventListener("click", () => wrap.remove());
 
   wrap.querySelector("#pd-settle-btn").addEventListener("click", async () => {
-    await api.patch(`/personal-debts/${debt.id}`, { is_settled: !debt.is_settled });
+    const patch = { is_settled: !debt.is_settled };
+    try {
+      if (Offline.isOffline() || debt._pending) {
+        Offline.queuePatch(debt.id, patch);
+      } else {
+        await api.patch(`/personal-debts/${debt.id}`, patch);
+      }
+    } catch (err) {
+      if (!err.isOffline) {
+        await UI.alert(err.message);
+        return;
+      }
+      Offline.queuePatch(debt.id, patch);
+    }
     wrap.remove();
     await refresh();
   });
 
   wrap.querySelector("#pd-delete-btn").addEventListener("click", async () => {
     if (!(await UI.confirm(`حذف دين ${esc(debt.person_name)}؟`, { danger: true }))) return;
-    await api.del(`/personal-debts/${debt.id}`);
+    try {
+      if (Offline.isOffline() || debt._pending) {
+        Offline.queueDelete(debt.id);
+      } else {
+        await api.del(`/personal-debts/${debt.id}`);
+      }
+    } catch (err) {
+      if (!err.isOffline) {
+        await UI.alert(err.message);
+        return;
+      }
+      Offline.queueDelete(debt.id);
+    }
     wrap.remove();
     await refresh();
   });
