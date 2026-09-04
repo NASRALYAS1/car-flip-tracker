@@ -590,3 +590,92 @@ label { display: block; font-size: 0.82rem; color: var(--text-dim); margin-botto
   color: #7dc2ff;
   border-top: 1px solid #7dc2ff55;
 }
+
+/* Settings-style grouped list rows. Navigation should look like navigation:
+   a compact tappable row with a chevron, the pattern every phone user
+   already knows — not a full-width button identical to a save action. */
+.settings-group { margin-bottom: 22px; }
+.settings-group .group-title {
+  font-size: 0.74rem;
+  color: var(--text-faint);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  margin: 0 4px 8px;
+}
+.settings-list {
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+}
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-soft);
+  cursor: pointer;
+  color: var(--text);
+  transition: background 0.12s ease;
+}
+.settings-row:last-child { border-bottom: none; }
+.settings-row:active { background: var(--surface-2); }
+.settings-row .row-icon { font-size: 1.1rem; flex-shrink: 0; width: 24px; text-align: center; }
+.settings-row .row-label { flex: 1; font-weight: 600; font-size: 0.95rem; }
+.settings-row .row-value { color: var(--text-dim); font-size: 0.84rem; font-weight: 600; }
+.settings-row .row-chevron { color: var(--text-faint); font-size: 1.05rem; flex-shrink: 0; }
+.settings-row.static { cursor: default; }
+.settings-row.static:active { background: transparent; }
+.settings-row.danger .row-label { color: var(--red); }
+
+/* Identity header — who you are and which business, at a glance */
+.profile-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 22px;
+  box-shadow: var(--shadow-card);
+}
+.profile-head .avatar {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  flex-shrink: 0;
+}
+.profile-head .who { font-weight: 800; font-size: 1.05rem; }
+.profile-head .where { color: var(--text-dim); font-size: 0.83rem; margin-top: 2px; }
+
+/* Inline panel revealed by a settings row */
+.settings-panel {
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  margin-top: 10px;
+}
+.settings-panel .hint {
+  color: var(--text-dim);
+  font-size: 0.83rem;
+  line-height: 1.6;
+  margin: 0 0 12px;
+}
+
+/* Tiny caption above a figure in a list row — an unlabelled number is
+   ambiguous to anyone who didn't build the app. */
+.list-item .end .amt-label {
+  color: var(--text-faint);
+  font-size: 0.65rem;
+  font-weight: 700;
+  margin-bottom: 1px;
+}

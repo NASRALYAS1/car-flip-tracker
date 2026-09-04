@@ -1,4 +1,4 @@
-const CACHE_NAME = "car-flip-shell-v33";
+const CACHE_NAME = "car-flip-shell-v34";
 // Kept separate from the shell cache so bumping the shell version doesn't
 // throw away the offline data copy, and so it can be wiped on its own when
 // a partner logs out (see the "clear-api-cache" message below).

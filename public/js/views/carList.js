@@ -19,6 +19,7 @@ function renderCarListItems(cars, status) {
         <div class="sub">${esc(sub || car.purchase_date)}</div>
       </div>
       <div class="end">
+        <div class="amt-label">سعر الشراء</div>
         <div class="amt">${money.formatUsd(car.purchase_price_usd_cents)}</div>
         <span class="badge ${car.status}">${CAR_STATUS_LABELS[car.status]}</span>
       </div>

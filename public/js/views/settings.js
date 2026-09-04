@@ -1,43 +1,150 @@
 Views.settings = async function (container) {
   const s = appState.settings;
 
+  const partnerCount = (appState.users || []).filter((u) => u.is_active).length;
+  const lockOn = AppLock.isConfigured();
+
   container.innerHTML = `
     <div class="topbar"><h1>⚙️ الإعدادات</h1></div>
     <div id="settings-msg"></div>
 
-    <form id="settings-form">
-      <div class="field"><label>اسم التجارة / المعرض</label><input name="business_name" value="${esc(s.business_name || "")}" /></div>
-      <div class="field"><label>سعر الصرف الحالي (دينار لكل دولار)</label><input type="number" name="last_exchange_rate" value="${esc(s.last_exchange_rate || "")}" /></div>
-      <button type="submit" class="btn">حفظ الإعدادات</button>
-    </form>
-
-    <a href="#/partners" class="btn secondary" style="margin-top:16px">👥 إدارة الشركاء</a>
-    <a href="#/expense-presets" class="btn secondary" style="margin-top:10px">🧾 قوالب المصاريف الجاهزة</a>
-    <a href="#/personal-debts" class="btn secondary" style="margin-top:10px">🔒 ديوني الشخصية (خاص بيك)</a>
-    <p style="color:var(--text-dim);font-size:0.8rem;margin:10px 2px 0">
-      💾 يتم أخذ نسخة احتياطية تلقائياً كل ليلة، بدون أي إجراء منك.
-    </p>
-
-    <h2>🔒 قفل التطبيق</h2>
-    <div id="lock-section"></div>
-    <div id="lock-msg"></div>
-
-    <h2>🔑 رمز الاسترجاع</h2>
-    <div class="card">
-      <p style="margin:0 0 12px;color:var(--text-dim)">
-        رمز الاسترجاع يخليك ترجع لحسابك إذا نسيت كلمة المرور، بدون ما تحتاج شريك ثاني يفتحلك.
-        إذا ضيّعت رمزك القديم أو تشك إنه صار معروف لأحد، ولّد رمز جديد — الرمز القديم يوقف عن الشغل فوراً.
-      </p>
-      <button class="btn secondary" id="regen-recovery-btn">🔑 توليد رمز استرجاع جديد</button>
+    <div class="profile-head">
+      <div class="avatar">👤</div>
+      <div>
+        <div class="who">${esc((appState.user && appState.user.display_name) || "")}</div>
+        <div class="where">${esc(s.business_name || "تجارة السيارات")}</div>
+      </div>
     </div>
 
-    <button class="btn danger" id="logout-btn" style="margin-top:16px">تسجيل خروج</button>
+    <div class="settings-group">
+      <div class="group-title">التجارة</div>
+      <div class="settings-list">
+        <div class="settings-row" data-panel="business">
+          <span class="row-icon">🏪</span>
+          <span class="row-label">اسم المعرض</span>
+          <span class="row-value">${esc(s.business_name || "—")}</span>
+          <span class="row-chevron">›</span>
+        </div>
+        <div class="settings-row" data-panel="business">
+          <span class="row-icon">💵</span>
+          <span class="row-label">سعر الصرف</span>
+          <span class="row-value">${esc(s.last_exchange_rate || "—")} د.ع</span>
+          <span class="row-chevron">›</span>
+        </div>
+        <div class="settings-row" data-nav="#/partners">
+          <span class="row-icon">👥</span>
+          <span class="row-label">الشركاء</span>
+          <span class="row-value">${partnerCount}</span>
+          <span class="row-chevron">›</span>
+        </div>
+        <div class="settings-row" data-nav="#/expense-presets">
+          <span class="row-icon">🧾</span>
+          <span class="row-label">قوالب المصاريف الجاهزة</span>
+          <span class="row-chevron">›</span>
+        </div>
+      </div>
+      <div id="business-panel" class="hidden">
+        <div class="settings-panel">
+          <form id="settings-form">
+            <div class="field"><label>اسم التجارة / المعرض</label><input name="business_name" value="${esc(s.business_name || "")}" /></div>
+            <div class="field"><label>سعر الصرف (دينار لكل دولار)</label><input type="number" name="last_exchange_rate" value="${esc(s.last_exchange_rate || "")}" /></div>
+            <button type="submit" class="btn">حفظ</button>
+          </form>
+        </div>
+      </div>
+    </div>
 
-    <p id="toggle-advanced" style="color:var(--text-faint);font-size:0.78rem;margin-top:28px;text-align:center;cursor:pointer">
-      ⚙️ خيارات متقدمة
-    </p>
-    <div id="advanced-section" class="hidden"></div>
+    <div class="settings-group">
+      <div class="group-title">خاص بيك</div>
+      <div class="settings-list">
+        <div class="settings-row" data-nav="#/personal-debts">
+          <span class="row-icon">🔒</span>
+          <span class="row-label">ديوني الشخصية</span>
+          <span class="row-value">ما يشوفها غيرك</span>
+          <span class="row-chevron">›</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <div class="group-title">الأمان</div>
+      <div class="settings-list">
+        <div class="settings-row" data-panel="lock">
+          <span class="row-icon">🔐</span>
+          <span class="row-label">قفل التطبيق برمز</span>
+          <span class="row-value" style="color:${lockOn ? "var(--green)" : "var(--text-dim)"}">${lockOn ? "مفعّل" : "غير مفعّل"}</span>
+          <span class="row-chevron">›</span>
+        </div>
+        <div class="settings-row" data-panel="recovery">
+          <span class="row-icon">🔑</span>
+          <span class="row-label">رمز الاسترجاع</span>
+          <span class="row-chevron">›</span>
+        </div>
+      </div>
+      <div id="lock-panel" class="hidden">
+        <div id="lock-section"></div>
+        <div id="lock-msg"></div>
+      </div>
+      <div id="recovery-panel" class="hidden">
+        <div class="settings-panel">
+          <p class="hint">
+            يرجّعك لحسابك إذا نسيت كلمة المرور، بدون ما تحتاج شريك ثاني.
+            توليد رمز جديد يوقّف الرمز القديم فوراً.
+          </p>
+          <button class="btn secondary" id="regen-recovery-btn">توليد رمز جديد</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <div class="group-title">النسخ الاحتياطي</div>
+      <div class="settings-list">
+        <div class="settings-row static">
+          <span class="row-icon">✅</span>
+          <span class="row-label" style="font-weight:600;color:var(--text-dim);font-size:0.86rem">
+            نسخة احتياطية تلقائية كل ليلة
+          </span>
+        </div>
+        <div class="settings-row" data-panel="restore">
+          <span class="row-icon">♻️</span>
+          <span class="row-label">استعادة من نسخة احتياطية</span>
+          <span class="row-chevron">›</span>
+        </div>
+      </div>
+      <div id="restore-panel" class="hidden">
+        <div id="advanced-section"></div>
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <div class="settings-list">
+        <div class="settings-row danger" id="logout-btn">
+          <span class="row-icon">↩️</span>
+          <span class="row-label">تسجيل خروج</span>
+        </div>
+      </div>
+    </div>
   `;
+
+  // Row taps: either navigate, or reveal the panel belonging to that row.
+  container.querySelectorAll("[data-nav]").forEach((row) => {
+    row.addEventListener("click", () => (window.location.hash = row.dataset.nav));
+  });
+  container.querySelectorAll("[data-panel]").forEach((row) => {
+    row.addEventListener("click", () => {
+      const panel = container.querySelector(`#${row.dataset.panel}-panel`);
+      if (!panel) return;
+      const opening = panel.classList.contains("hidden");
+      panel.classList.toggle("hidden");
+      if (opening) {
+        if (row.dataset.panel === "restore" && !panel.dataset.loaded) {
+          panel.dataset.loaded = "1";
+          renderAdvancedSection(panel.querySelector("#advanced-section"));
+        }
+        panel.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      }
+    });
+  });
 
   container.querySelector("#settings-form").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -77,15 +184,6 @@ Views.settings = async function (container) {
   });
 
   renderLockSection(container);
-
-  container.querySelector("#toggle-advanced").addEventListener("click", () => {
-    const section = container.querySelector("#advanced-section");
-    section.classList.toggle("hidden");
-    if (!section.classList.contains("hidden") && !section.dataset.loaded) {
-      section.dataset.loaded = "1";
-      renderAdvancedSection(section);
-    }
-  });
 };
 
 // Deliberately tucked away and collapsed by default — this is a
@@ -219,6 +317,14 @@ function renderLockSection(container) {
 
   function refresh() {
     renderLockSection(container);
+    // Keep the summary row above the panel truthful — otherwise it still
+    // reads "غير مفعّل" right after the user just turned the lock on.
+    const statusRow = container.querySelector('[data-panel="lock"] .row-value');
+    if (statusRow) {
+      const on = AppLock.isConfigured();
+      statusRow.textContent = on ? "مفعّل" : "غير مفعّل";
+      statusRow.style.color = on ? "var(--green)" : "var(--text-dim)";
+    }
   }
 
   const enableBtn = section.querySelector("#enable-lock-btn");
