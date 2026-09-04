@@ -5,14 +5,14 @@ Views.dashboard = async function (container) {
     .map(
       (p) => `
       <div class="card-row">
-        <span class="label">🧑 حصة ${esc(p.display_name)}</span>
+        <span class="label">حصة ${esc(p.display_name)}</span>
         <span class="value">${money.formatUsd(p.share_usd_cents)}</span>
       </div>`
     )
     .join("");
 
   container.innerHTML = `
-    <div class="topbar"><h1>👋 أهلاً بك</h1></div>
+    <div class="topbar"><h1>👋 أهلاً ${esc((appState.user && appState.user.display_name) || "")}</h1></div>
 
     <div class="card" style="background:linear-gradient(160deg,#17233f,#131c33);border-color:#2f3f68">
       <div style="color:var(--text-dim);font-size:0.85rem;font-weight:700;margin-bottom:4px">إجمالي الربح</div>

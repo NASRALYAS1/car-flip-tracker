@@ -37,7 +37,7 @@ Views.reports = async function (container) {
       .map(
         (p) => `
       <div class="card-row">
-        <span class="label">🧑 حصة ${esc(p.display_name)}</span>
+        <span class="label">حصة ${esc(p.display_name)}</span>
         <span class="value">${money.formatUsd(p.share_usd_cents)}</span>
       </div>`
       )

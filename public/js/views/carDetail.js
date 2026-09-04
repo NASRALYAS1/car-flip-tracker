@@ -506,7 +506,7 @@ function saleSectionHtml(car, closed) {
           .map(
             ([userId, total]) => `
           <div class="card-row">
-            <span class="label">🧑 ${esc(userName(userId))}</span>
+            <span class="label">${esc(userName(userId))}</span>
             <span class="value">${money.formatUsd(total)}</span>
           </div>`
           )
