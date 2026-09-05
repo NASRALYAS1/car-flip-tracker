@@ -11,6 +11,13 @@ export type ProfitInputs = {
 export type ProfitResult = {
   realized_profit_usd_cents: number;
   target_profit_usd_cents: number;
+  // What this deal ends up at once it's fully settled: sale price minus any
+  // discount minus cost. Same as realized on a closed deal; on an open
+  // installment sale it's where the running accrual is heading. This is the
+  // number that answers "did we win or lose on this car" — a car bought at
+  // 10,000 and sold at 8,000 is a loss from the day it's sold, no matter how
+  // little of the installment plan has been collected so far.
+  final_profit_usd_cents: number;
   is_accrued: boolean; // true while an installment sale is still open — the number is a running estimate, not final
 };
 
@@ -35,9 +42,15 @@ export function computeProfit(s: ProfitInputs): ProfitResult {
   const cost = s.purchase_price_usd_cents + s.total_expenses_usd_cents;
   const targetProfit = s.sale_price_usd_cents - cost;
 
+  const finalProfit = s.sale_price_usd_cents - s.discount_usd_cents - cost;
+
   if (s.sale_type !== "installment") {
-    const realized = s.sale_price_usd_cents - s.discount_usd_cents - cost;
-    return { realized_profit_usd_cents: realized, target_profit_usd_cents: realized, is_accrued: false };
+    return {
+      realized_profit_usd_cents: finalProfit,
+      target_profit_usd_cents: finalProfit,
+      final_profit_usd_cents: finalProfit,
+      is_accrued: false,
+    };
   }
 
   const totalPaid = s.down_payment_usd_cents + s.installments_paid_usd_cents;
@@ -45,13 +58,22 @@ export function computeProfit(s: ProfitInputs): ProfitResult {
   const closed = remaining <= 0;
 
   if (closed) {
-    const realized = s.sale_price_usd_cents - s.discount_usd_cents - cost;
-    return { realized_profit_usd_cents: realized, target_profit_usd_cents: targetProfit, is_accrued: false };
+    return {
+      realized_profit_usd_cents: finalProfit,
+      target_profit_usd_cents: targetProfit,
+      final_profit_usd_cents: finalProfit,
+      is_accrued: false,
+    };
   }
 
   const installmentPortion = s.sale_price_usd_cents - s.down_payment_usd_cents;
   if (installmentPortion <= 0) {
-    return { realized_profit_usd_cents: targetProfit, target_profit_usd_cents: targetProfit, is_accrued: false };
+    return {
+      realized_profit_usd_cents: targetProfit,
+      target_profit_usd_cents: targetProfit,
+      final_profit_usd_cents: finalProfit,
+      is_accrued: false,
+    };
   }
 
   const collected = Math.min(s.installments_paid_usd_cents, installmentPortion);
@@ -59,6 +81,7 @@ export function computeProfit(s: ProfitInputs): ProfitResult {
   return {
     realized_profit_usd_cents: Math.round(targetProfit * fraction),
     target_profit_usd_cents: targetProfit,
+    final_profit_usd_cents: finalProfit,
     is_accrued: true,
   };
 }

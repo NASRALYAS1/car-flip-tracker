@@ -679,3 +679,90 @@ label { display: block; font-size: 0.82rem; color: var(--text-dim); margin-botto
   font-weight: 700;
   margin-bottom: 1px;
 }
+
+/* ---- deal outcome in the car list ---- */
+/* A losing deal is coloured on both ends of the row — the name and the
+   number — because the list is scanned, not read, and a red number alone on
+   the far side is easy to slide past. */
+.list-item.loss {
+  border-inline-start-width: 3px;
+  border-inline-start-color: var(--red);
+}
+.list-item .main.loss { color: var(--red); }
+.list-item .end .amt.loss { color: var(--red); }
+.list-item .end .amt.gain { color: var(--green); }
+
+.loss-summary {
+  background: var(--red-soft);
+  color: #fca5a5;
+  border: 1px solid #f8717133;
+  border-radius: var(--radius-sm);
+  padding: 9px 13px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+/* ---- completed-deal lock ---- */
+.deal-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  font-weight: 700;
+  font-size: 0.87rem;
+}
+.deal-banner.done {
+  background: var(--green-soft);
+  border: 1px solid #34d39933;
+  color: #6ee7b7;
+}
+.deal-banner.editing {
+  background: var(--amber-soft);
+  border: 1px solid #fbbf2440;
+  color: #fcd34d;
+}
+
+.pill-btn {
+  flex-shrink: 0;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.09);
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.12s ease;
+}
+.pill-btn:active { transform: scale(0.94); background: rgba(255, 255, 255, 0.16); }
+
+/* ---- destructive actions, kept folded away ---- */
+.danger-zone { margin: 26px 0 8px; }
+
+.danger-toggle {
+  width: 100%;
+  font-family: inherit;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--text-faint);
+  background: none;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  padding: 11px;
+  cursor: pointer;
+}
+.danger-toggle.open { color: var(--text-dim); border-style: solid; }
+
+.danger-action { width: 100%; margin-top: 12px; }
+
+.danger-note {
+  color: var(--text-faint);
+  font-size: 0.78rem;
+  line-height: 1.6;
+  margin: 7px 2px 0;
+}

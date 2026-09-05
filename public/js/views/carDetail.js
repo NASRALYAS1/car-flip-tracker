@@ -33,10 +33,157 @@ function dualFor(usdCents, obj, prefix) {
   });
 }
 
-function renderCarDetail(container, car) {
+// A car whose cost was carried in from a trade, or already carried out into
+// the next car in the chain, can't have its purchase price rewritten — that
+// figure is a link in the chain's cost, not a standalone price. The server
+// refuses it either way; this keeps the field from being offered at all so
+// nobody types a correction that gets rejected.
+function canEditPurchasePrice(car) {
+  return !car.acquired_via_trade_id && car.status !== "traded";
+}
+
+function dealBannerHtml(unlocked) {
+  if (unlocked) {
+    return `
+      <div class="deal-banner editing">
+        <span>وضع التعديل مفتوح — أي تغيير هنا يعدّل أرقام صفقة مكتملة</span>
+        <button type="button" class="pill-btn" id="lock-deal-btn">🔒 إقفال</button>
+      </div>`;
+  }
+  return `
+    <div class="deal-banner done">
+      <span>✅ صفقة مكتملة — عرض فقط</span>
+      <button type="button" class="pill-btn" id="unlock-deal-btn">✎ تعديل</button>
+    </div>`;
+}
+
+// Undoing a deal has two very different sizes, and collapsing them into one
+// button would make people reach for the wrong one. Cancelling the sale is
+// the small one: the car itself was real, only the sale was wrong, so it goes
+// back to stock with its purchase and expenses intact. Deleting the car is
+// the big one: the whole entry was a mistake and everything attached to it
+// goes with it. Both live behind a fold, because neither should be one
+// mis-tap away on a screen people open dozens of times a day.
+function dangerZoneHtml(car) {
+  if (car.status === "traded") return ""; // undoing the trade is the exit here
+
+  const fromTrade = !!car.acquired_via_trade_id;
+
+  return `
+    <div class="danger-zone">
+      <button type="button" class="danger-toggle" id="toggle-danger">⚠️ خيارات متقدمة</button>
+      <div id="danger-wrap" class="hidden">
+        ${
+          car.sale
+            ? `<button type="button" class="btn secondary danger-action" id="cancel-sale-btn">↩️ إلغاء البيع وإرجاع السيارة للمخزون</button>
+               <p class="danger-note">يشيل البيع وكل الدفعات المسجلة عليه. السيارة ومصاريفها وصورها تبقى مثل ما هي وترجع للمخزون.</p>`
+            : ""
+        }
+        ${
+          fromTrade
+            ? `<p class="danger-note">هذي السيارة جاية من تبديل — لحذفها لازم تلغي التبديل من السيارة السابقة بالسلسلة أعلاه.</p>`
+            : `<button type="button" class="btn danger danger-action" id="delete-car-btn">🗑️ حذف الصفقة نهائياً</button>
+               <p class="danger-note">يمحي السيارة وكل مصاريفها وصورها وبيعها ودفعاتها من التطبيق نهائياً. ما يمكن التراجع.</p>`
+        }
+      </div>
+    </div>`;
+}
+
+function bindDealLock(container, car, opts) {
+  const unlockBtn = container.querySelector("#unlock-deal-btn");
+  if (unlockBtn) {
+    unlockBtn.addEventListener("click", async () => {
+      const ok = await UI.confirm(
+        "هذي صفقة مكتملة. فتحها للتعديل يخليك تغيّر أرقامها، والربح والتقارير راح تتحدث حسب التغيير. تفتحها؟",
+        { okText: "افتح للتعديل" }
+      );
+      if (!ok) return;
+      renderCarDetail(container, car, { ...opts, unlocked: true });
+    });
+  }
+
+  const lockBtn = container.querySelector("#lock-deal-btn");
+  if (lockBtn) {
+    lockBtn.addEventListener("click", () => {
+      renderCarDetail(container, car, { ...opts, unlocked: false });
+    });
+  }
+}
+
+function bindDangerZone(container, car, opts) {
+  const toggle = container.querySelector("#toggle-danger");
+  if (toggle) {
+    toggle.addEventListener("click", () => {
+      const wrap = container.querySelector("#danger-wrap");
+      wrap.classList.toggle("hidden");
+      toggle.classList.toggle("open", !wrap.classList.contains("hidden"));
+    });
+  }
+
+  const cancelSaleBtn = container.querySelector("#cancel-sale-btn");
+  if (cancelSaleBtn) {
+    cancelSaleBtn.addEventListener("click", async () => {
+      const paymentCount = car.installment_payments.length;
+      const message = paymentCount
+        ? `إلغاء هذا البيع؟ راح تنحذف ${paymentCount === 1 ? "دفعة وحدة مسجلة" : `${paymentCount} دفعات مسجلة`} على العقد، والسيارة ترجع للمخزون.`
+        : "إلغاء هذا البيع؟ السيارة ترجع للمخزون وتكدر تبيعها من جديد.";
+      if (!(await UI.confirm(message, { danger: true, okText: "إلغاء البيع" }))) return;
+      try {
+        await api.del(`/cars/${car.id}/sale`);
+        const fresh = await api.get(`/cars/${car.id}`);
+        renderCarDetail(container, fresh, { ...opts, unlocked: false });
+      } catch (err) {
+        await UI.alert(err.message);
+      }
+    });
+  }
+
+  const deleteCarBtn = container.querySelector("#delete-car-btn");
+  if (deleteCarBtn) {
+    deleteCarBtn.addEventListener("click", async () => {
+      const parts = [];
+      if (car.expenses.length) parts.push(`${car.expenses.length} مصروف`);
+      if (car.photos.length) parts.push(`${car.photos.length} صورة`);
+      if (car.sale) parts.push("البيع");
+      if (car.installment_payments.length) parts.push(`${car.installment_payments.length} دفعة`);
+
+      const first = await UI.confirm(
+        `حذف ${esc(car.make)} ${esc(car.model)} نهائياً؟${parts.length ? `<br><br>راح ينحذف معها: ${parts.join(" · ")}.` : ""}`,
+        { danger: true, okText: "كمّل" }
+      );
+      if (!first) return;
+
+      // Deliberately two steps: the first confirm says what goes, the second
+      // says it can't be undone. Nothing else in the app destroys this much
+      // at once, and a single tap-through would be too easy.
+      const second = await UI.confirm("متأكد؟ ما راح تكدر ترجّع هذي البيانات بعد الحذف.", {
+        danger: true,
+        okText: "احذف نهائياً",
+      });
+      if (!second) return;
+
+      try {
+        await api.del(`/cars/${car.id}`);
+        window.location.hash = "#/cars";
+      } catch (err) {
+        await UI.alert(err.message);
+      }
+    });
+  }
+}
+
+function renderCarDetail(container, car, opts = {}) {
   const totalExpenses = car.expenses.reduce((s, e) => s + e.amount_usd_cents, 0);
   const runningCost = car.purchase_price_usd_cents + totalExpenses;
-  const closed = isSaleClosed(car);
+  const dealClosed = isSaleClosed(car);
+  // A finished deal stays read-only by default, but "read-only forever" is
+  // its own kind of wrong: a price gets typed in with an extra zero, a sale
+  // gets recorded against the wrong car, a buyer's name is misspelled. So
+  // it's a lock that can be opened deliberately for this one visit — the
+  // guard rail is the deliberate act of opening it, not the absence of a
+  // door. Closing the screen locks it again.
+  const unlocked = !!opts.unlocked;
+  const closed = dealClosed && !unlocked;
 
   container.innerHTML = `
     <div class="topbar">
@@ -44,7 +191,7 @@ function renderCarDetail(container, car) {
       <h1>${esc(car.make)} ${esc(car.model)}</h1>
       <span class="badge ${car.status}">${CAR_STATUS_LABELS[car.status]}</span>
     </div>
-    ${closed ? `<div class="card" style="text-align:center;color:var(--green);font-weight:700">✅ صفقة مكتملة — عرض فقط</div>` : ""}
+    ${dealClosed ? dealBannerHtml(unlocked) : ""}
 
     ${chainHtml(car.chain, car.id)}
 
@@ -130,6 +277,7 @@ function renderCarDetail(container, car) {
     ${saleSectionHtml(car, closed)}
 
     ${car.status === "in_stock" ? actionsHtml(car.id) : ""}
+    ${dangerZoneHtml(car)}
     <div id="car-detail-msg"></div>
   `;
 
@@ -139,7 +287,7 @@ function renderCarDetail(container, car) {
   if (editCarBtn) {
     editCarBtn.addEventListener("click", (e) => {
       e.preventDefault();
-      openCarEditForm(container, car);
+      openCarEditForm(container, car, opts);
     });
   }
 
@@ -156,7 +304,7 @@ function renderCarDetail(container, car) {
       try {
         await api.post(`/cars/${car.id}/photos`, fd);
         const fresh = await api.get(`/cars/${car.id}`);
-        renderCarDetail(container, fresh);
+        renderCarDetail(container, fresh, opts);
       } catch (err) {
         await UI.alert(err.message);
       }
@@ -168,7 +316,7 @@ function renderCarDetail(container, car) {
         if (!(await UI.confirm("حذف هذه الصورة؟", { danger: true }))) return;
         await api.del(`/photos/${img.dataset.photoId}`);
         const fresh = await api.get(`/cars/${car.id}`);
-        renderCarDetail(container, fresh);
+        renderCarDetail(container, fresh, opts);
       });
     });
   }
@@ -208,7 +356,7 @@ function renderCarDetail(container, car) {
           ...amountField,
         });
         const fresh = await api.get(`/cars/${car.id}`);
-        renderCarDetail(container, fresh);
+        renderCarDetail(container, fresh, opts);
       } catch (err) {
         await UI.alert(err.message);
       }
@@ -218,7 +366,7 @@ function renderCarDetail(container, car) {
     a.addEventListener("click", (e) => {
       e.preventDefault();
       const exp = car.expenses.find((x) => String(x.id) === a.dataset.editExpense);
-      openExpenseEditForm(container, car, exp);
+      openExpenseEditForm(container, car, exp, opts);
     });
   });
   container.querySelectorAll("[data-del-expense]").forEach((a) => {
@@ -227,16 +375,18 @@ function renderCarDetail(container, car) {
       if (!(await UI.confirm("حذف هذا المصروف؟", { danger: true }))) return;
       await api.del(`/expenses/${a.dataset.delExpense}`);
       const fresh = await api.get(`/cars/${car.id}`);
-      renderCarDetail(container, fresh);
+      renderCarDetail(container, fresh, opts);
     });
   });
 
+  bindDealLock(container, car, opts);
+  bindDangerZone(container, car, opts);
   bindChainStrip(container, car);
   bindActions(container, car);
-  bindSaleSection(container, car);
+  bindSaleSection(container, car, opts);
 }
 
-function openCarEditForm(container, car) {
+function openCarEditForm(container, car, opts = {}) {
   const existing = container.querySelector("#edit-car-wrap");
   if (existing) existing.remove();
 
@@ -248,6 +398,7 @@ function openCarEditForm(container, car) {
     <form id="edit-car-form">
       <div class="field"><label>الماركة</label><input name="make" value="${esc(car.make)}" required /></div>
       <div class="field"><label>الموديل</label><input name="model" value="${esc(car.model)}" required /></div>
+      ${canEditPurchasePrice(car) ? money.inputHtml("purchase_price", "سعر الشراء", { currency: car.purchase_price_currency }) : ""}
       <div class="grid-2">
         <div class="field"><label>سنة الصنع</label><input type="number" name="year" value="${esc(car.year ?? "")}" /></div>
         <div class="field"><label>اللون</label><input name="color" value="${esc(car.color ?? "")}" /></div>
@@ -263,6 +414,15 @@ function openCarEditForm(container, car) {
   container.querySelector("#car-detail-msg").before(wrap);
 
   const form = wrap.querySelector("#edit-car-form");
+  if (canEditPurchasePrice(car)) {
+    form.querySelector('[name="purchase_price_amount_display"]').value = money.formatWithCommas(
+      (car.purchase_price_amount / 100).toFixed(2)
+    );
+    if (car.purchase_price_currency === "IQD" && car.purchase_price_exchange_rate) {
+      form.querySelector('[name="purchase_price_exchange_rate"]').value = car.purchase_price_exchange_rate;
+    }
+    money.bindInputToggle(form, "purchase_price");
+  }
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const fd = new FormData(form);
@@ -277,17 +437,22 @@ function openCarEditForm(container, car) {
       seller_contact: fd.get("seller_contact") || null,
       condition_notes: fd.get("condition_notes") || null,
     };
+    if (canEditPurchasePrice(car)) {
+      const priceField = money.readField(fd, "purchase_price");
+      if (!priceField) return;
+      Object.assign(payload, priceField);
+    }
     try {
       await api.patch(`/cars/${car.id}`, payload);
       const fresh = await api.get(`/cars/${car.id}`);
-      renderCarDetail(container, fresh);
+      renderCarDetail(container, fresh, opts);
     } catch (err) {
       container.querySelector("#car-detail-msg").innerHTML = `<div class="error-msg">${esc(err.message)}</div>`;
     }
   });
 }
 
-function openExpenseEditForm(container, car, expense) {
+function openExpenseEditForm(container, car, expense, opts = {}) {
   const existing = container.querySelector("#edit-expense-wrap");
   if (existing) existing.remove();
 
@@ -324,14 +489,14 @@ function openExpenseEditForm(container, car, expense) {
         ...amountField,
       });
       const fresh = await api.get(`/cars/${car.id}`);
-      renderCarDetail(container, fresh);
+      renderCarDetail(container, fresh, opts);
     } catch (err) {
       container.querySelector("#car-detail-msg").innerHTML = `<div class="error-msg">${esc(err.message)}</div>`;
     }
   });
 }
 
-function openSaleEditForm(container, car) {
+function openSaleEditForm(container, car, opts = {}) {
   const existing = container.querySelector("#edit-sale-wrap");
   if (existing) existing.remove();
 
@@ -380,7 +545,7 @@ function openSaleEditForm(container, car) {
     try {
       await api.patch(`/cars/${car.id}/sale`, payload);
       const fresh = await api.get(`/cars/${car.id}`);
-      renderCarDetail(container, fresh);
+      renderCarDetail(container, fresh, opts);
     } catch (err) {
       container.querySelector("#car-detail-msg").innerHTML = `<div class="error-msg">${esc(err.message)}</div>`;
     }
@@ -617,7 +782,7 @@ function saleSectionHtml(car, closed) {
   `;
 }
 
-function bindSaleSection(container, car) {
+function bindSaleSection(container, car, opts = {}) {
   const undoTradeBtn = container.querySelector("#undo-trade-btn");
   if (undoTradeBtn) {
     undoTradeBtn.addEventListener("click", async () => {
@@ -625,7 +790,7 @@ function bindSaleSection(container, car) {
       try {
         await api.del(`/cars/${car.id}/trade`);
         const fresh = await api.get(`/cars/${car.id}`);
-        renderCarDetail(container, fresh);
+        renderCarDetail(container, fresh, opts);
       } catch (err) {
         await UI.alert(err.message);
       }
@@ -636,7 +801,7 @@ function bindSaleSection(container, car) {
   if (editSaleBtn) {
     editSaleBtn.addEventListener("click", (e) => {
       e.preventDefault();
-      openSaleEditForm(container, car);
+      openSaleEditForm(container, car, opts);
     });
   }
 
@@ -703,7 +868,7 @@ function bindSaleSection(container, car) {
           ...amountField,
         });
         const fresh = await api.get(`/cars/${car.id}`);
-        renderCarDetail(container, fresh);
+        renderCarDetail(container, fresh, opts);
       } catch (err) {
         await UI.alert(err.message);
       }
@@ -775,7 +940,7 @@ function bindSaleSection(container, car) {
           amount_exchange_rate: field.settle_amount_exchange_rate,
         });
         const fresh = await api.get(`/cars/${car.id}`);
-        renderCarDetail(container, fresh);
+        renderCarDetail(container, fresh, opts);
       } catch (err) {
         await UI.alert(err.message);
       }
@@ -788,7 +953,7 @@ function bindSaleSection(container, car) {
       if (!(await UI.confirm("حذف هذه الدفعة؟", { danger: true }))) return;
       await api.del(`/payments/${a.dataset.delPayment}`);
       const fresh = await api.get(`/cars/${car.id}`);
-      renderCarDetail(container, fresh);
+      renderCarDetail(container, fresh, opts);
     });
   });
 }
