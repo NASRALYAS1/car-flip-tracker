@@ -34,6 +34,13 @@ function carOutcome(car) {
   };
 }
 
+function countCars(n) {
+  if (n === 1) return "سيارة واحدة";
+  if (n === 2) return "سيارتين";
+  if (n <= 10) return `${n} سيارات`;
+  return `${n} سيارة`;
+}
+
 function renderCarListItems(cars, status) {
   if (!cars.length) {
     return `<div class="empty-state"><span class="emoji">🚗</span>لا توجد نتائج</div>`;
@@ -43,15 +50,14 @@ function renderCarListItems(cars, status) {
       const sub = [car.year, car.color].filter(Boolean).join(" · ");
       const outcome = carOutcome(car);
       return `
-    <div class="list-item ${outcome.isLoss ? "loss" : ""}" data-id="${car.id}">
-      <div>
+    <div class="list-item car-row ${outcome.isLoss ? "loss" : ""}" data-id="${car.id}">
+      <div class="who">
         <div class="main ${outcome.isLoss ? "loss" : ""}">${esc(car.make)} ${esc(car.model)}</div>
         <div class="sub">${esc(sub || car.purchase_date)}</div>
       </div>
       <div class="end">
         <div class="amt-label">${outcome.label}</div>
         <div class="amt ${outcome.tone}">${outcome.value}</div>
-        <span class="badge ${car.status}">${CAR_STATUS_LABELS[car.status]}</span>
       </div>
     </div>`;
     })
@@ -70,7 +76,7 @@ Views.carList = async function (container, status) {
 
   const losses = cars.filter((car) => car.profit && car.profit.final_profit_usd_cents < 0);
   const lossBanner = losses.length
-    ? `<div class="loss-summary">${losses.length === 1 ? "سيارة واحدة" : `${losses.length} سيارات`} بخسارة بهذي القائمة</div>`
+    ? `<div class="loss-summary">${countCars(losses.length)} بخسارة بهذي القائمة</div>`
     : "";
 
   container.innerHTML = `

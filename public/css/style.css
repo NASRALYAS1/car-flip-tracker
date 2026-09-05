@@ -680,6 +680,31 @@ label { display: block; font-size: 0.82rem; color: var(--text-dim); margin-botto
   margin-bottom: 1px;
 }
 
+/* ---- the car list's own row shape ----
+   Other lists (installments, reports) put a meaningful badge under the
+   amount and need the taller stack; the car list doesn't, so it gets a
+   shorter two-column row of its own rather than loosening the shared one. */
+.list-item.car-row { padding: 12px 15px; }
+.list-item.car-row .who { min-width: 0; }
+/* Without this a long make+model wraps to three lines and shoves the amount
+   off the row; it truncates instead and the full name is on the detail page. */
+.list-item.car-row .main {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.list-item.car-row .end .amt { margin-bottom: 0; }
+
+/* The add button floats over the list, so the list has to stop above it —
+   otherwise the last car is parked permanently underneath, which is exactly
+   the row someone scrolled all the way to the bottom to reach. The button
+   clears the nav bar by 16px and the page body already clears the nav, so
+   what's left to reserve is the button's own height plus that gap plus room
+   to breathe. (Deliberately not measured at runtime: the value only depends
+   on the button, and env(safe-area-inset-bottom) is already accounted for by
+   the body padding both this and the button sit on top of.) */
+#car-list { padding-bottom: calc(52px + 16px + 28px); }
+
 /* ---- deal outcome in the car list ---- */
 /* A losing deal is coloured on both ends of the row — the name and the
    number — because the list is scanned, not read, and a red number alone on
