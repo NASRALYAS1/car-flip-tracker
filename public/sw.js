@@ -1,4 +1,4 @@
-const CACHE_NAME = "car-flip-shell-v40";
+const CACHE_NAME = "car-flip-shell-v41";
 // Kept separate from the shell cache so bumping the shell version doesn't
 // throw away the offline data copy, and so it can be wiped on its own when
 // a partner logs out (see the "clear-api-cache" message below).
@@ -31,8 +31,8 @@ const SHELL_FILES = [
   "/js/views/partners.js",
   "/js/views/expensePresets.js",
   "/icons/logo.svg",
-  "/icons/icon-192.png",
-  "/icons/icon-512.png",
+  "/icons/v2/icon-192.png",
+  "/icons/v2/icon-512.png",
 ];
 
 self.addEventListener("install", (event) => {
@@ -114,8 +114,8 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(payload.title || "تنبيه", {
       body: payload.body || "",
-      icon: "/icons/icon-192.png",
-      badge: "/icons/icon-192.png",
+      icon: "/icons/v2/icon-192.png",
+      badge: "/icons/v2/icon-192.png",
       dir: "rtl",
       lang: "ar",
     })
