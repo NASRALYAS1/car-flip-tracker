@@ -1,3 +1,26 @@
+const LOCK_ICONS = {
+  padlock: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+      stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect x="4" y="10.2" width="16" height="10.8" rx="2.6" />
+      <path d="M8.1 10.2V7.3a3.9 3.9 0 0 1 7.8 0v2.9" />
+      <path d="M12 14.4v2.6" />
+    </svg>`,
+  fingerprint: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+      stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M5.6 12a6.4 6.4 0 0 1 12.8 0v1.4" />
+      <path d="M8.8 12a3.2 3.2 0 0 1 6.4 0v3.6" />
+      <path d="M12 12v5.4" />
+      <path d="M15.1 18.6a10 10 0 0 1-.4 2.2" />
+      <path d="M6.2 16.6c.3-.9.5-1.8.5-2.8" />
+      <path d="M9.4 20a9.4 9.4 0 0 0 .6-3.2" />
+    </svg>`,
+  backspace: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+      stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M20 4.8H9.3L3.4 12l5.9 7.2H20a1.6 1.6 0 0 0 1.6-1.6V6.4A1.6 1.6 0 0 0 20 4.8Z" />
+      <path d="M16.4 9.4 11.9 14M11.9 9.4l4.5 4.6" />
+    </svg>`,
+};
+
 // App-level device lock: a local PIN (and optionally device fingerprint/
 // face unlock via WebAuthn) required to view the app after it's been
 // backgrounded or reopened. This is separate from the account
@@ -103,17 +126,25 @@ const AppLock = {
       const overlay = document.createElement("div");
       overlay.id = "lock-overlay";
       const hasFingerprint = this.hasFingerprint();
+      // The shell's data is already loaded by the time this screen appears,
+      // so the lock can show whose business it is guarding rather than a
+      // generic label — it's the first thing seen on every reopen, and it's
+      // the one screen with room to say the app belongs to this dealership.
+      const businessName =
+        (typeof appState !== "undefined" && appState.settings && appState.settings.business_name) ||
+        "التطبيق مقفل";
       overlay.innerHTML = `
         <div class="lock-card">
-          <div class="lock-logo">🚗</div>
-          <div class="lock-title">🔒 التطبيق مقفل</div>
+          <div class="lock-mark">${LOCK_ICONS.padlock}</div>
+          <div class="lock-title">${esc(businessName)}</div>
+          <div class="lock-sub">أدخل رمز القفل</div>
           <div class="lock-dots" id="lock-dots"></div>
           <div id="lock-error" class="lock-error"></div>
           <div class="lock-keypad" id="lock-keypad">
             ${[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `<button type="button" data-digit="${n}">${n}</button>`).join("")}
-            ${hasFingerprint ? `<button type="button" id="lock-fingerprint-btn">👆</button>` : "<span></span>"}
+            ${hasFingerprint ? `<button type="button" id="lock-fingerprint-btn" aria-label="فتح بالبصمة">${LOCK_ICONS.fingerprint}</button>` : "<span></span>"}
             <button type="button" data-digit="0">0</button>
-            <button type="button" id="lock-backspace-btn">⌫</button>
+            <button type="button" id="lock-backspace-btn" aria-label="مسح">${LOCK_ICONS.backspace}</button>
           </div>
         </div>
       `;

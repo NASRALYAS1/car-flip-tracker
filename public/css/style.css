@@ -505,8 +505,26 @@ label { display: block; font-size: 0.82rem; color: var(--text-dim); margin-botto
   padding: 24px;
 }
 .lock-card { width: 100%; max-width: 320px; text-align: center; }
-.lock-logo { font-size: 2.8rem; margin-bottom: 6px; filter: drop-shadow(0 10px 26px #38bdf855); }
-.lock-title { font-weight: 800; font-size: 1.1rem; margin-bottom: 22px; }
+/* A drawn mark rather than an emoji: an emoji is the one thing on this
+   screen the app doesn't control the look of — the car rendered as a glossy
+   red cartoon on Samsung and a flat outline elsewhere, matching neither the
+   palette nor the other glyphs beside it. An SVG inherits currentColor and
+   sits in the app's own accent instead. */
+.lock-mark {
+  width: 68px;
+  height: 68px;
+  margin: 0 auto 16px;
+  display: grid;
+  place-items: center;
+  border-radius: 22px;
+  background: var(--accent-soft);
+  border: 1px solid #38bdf833;
+  color: var(--accent);
+  box-shadow: 0 14px 34px -14px #38bdf877;
+}
+.lock-mark svg { width: 31px; height: 31px; }
+.lock-title { font-weight: 800; font-size: 1.15rem; margin-bottom: 4px; }
+.lock-sub { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 22px; }
 .lock-dots { display: flex; justify-content: center; gap: 12px; margin-bottom: 10px; min-height: 16px; }
 .lock-dots .dot {
   width: 14px; height: 14px; border-radius: 50%;
@@ -522,6 +540,9 @@ label { display: block; font-size: 0.82rem; color: var(--text-dim); margin-botto
   font-family: inherit; cursor: pointer;
 }
 .lock-keypad button:active { background: var(--surface-3); }
+.lock-keypad button svg { width: 25px; height: 25px; display: block; }
+#lock-fingerprint-btn { color: var(--accent); }
+#lock-fingerprint-btn svg { width: 28px; height: 28px; }
 .lock-card.shake { animation: shake 0.4s ease; }
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
