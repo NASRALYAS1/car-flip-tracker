@@ -321,10 +321,12 @@ label { display: block; font-size: 0.82rem; color: var(--text-dim); margin-botto
   padding: 24px;
 }
 .login-screen .logo {
-  font-size: 3.2rem;
-  text-align: center;
-  margin-bottom: 10px;
-  filter: drop-shadow(0 10px 26px #38bdf855);
+  display: block;
+  width: 84px;
+  height: 84px;
+  margin: 0 auto 16px;
+  border-radius: 24px;
+  box-shadow: 0 16px 40px -16px #38bdf880;
 }
 .login-screen h1 { text-align: center; margin-bottom: 28px; font-size: 1.6rem; }
 .login-screen form { background: var(--surface); border: 1px solid var(--border-soft); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow-card); }

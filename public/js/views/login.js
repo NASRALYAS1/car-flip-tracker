@@ -5,8 +5,8 @@ Views.login = async function (container) {
 function renderLoginForm(container, { prefillUsername = "", message = "" } = {}) {
   container.innerHTML = `
     <div class="login-screen">
-      <div class="logo">🚗</div>
-      <h1>تجارة السيارات</h1>
+      <img class="logo" src="/icons/logo.svg" alt="" width="84" height="84" />
+      <h1>تطبيق الشركاء</h1>
       ${message ? `<div class="card" style="color:var(--green);text-align:center">${message}</div>` : ""}
       <div id="login-error"></div>
       <form id="login-form">

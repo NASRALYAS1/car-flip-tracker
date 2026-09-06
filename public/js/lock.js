@@ -77,7 +77,7 @@ const AppLock = {
     const cred = await navigator.credentials.create({
       publicKey: {
         challenge: crypto.getRandomValues(new Uint8Array(32)),
-        rp: { name: "تجارة السيارات" },
+        rp: { name: "تطبيق الشركاء" },
         user: {
           id: crypto.getRandomValues(new Uint8Array(16)),
           name: "device-lock",

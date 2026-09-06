@@ -1,4 +1,4 @@
-const CACHE_NAME = "car-flip-shell-v39";
+const CACHE_NAME = "car-flip-shell-v40";
 // Kept separate from the shell cache so bumping the shell version doesn't
 // throw away the offline data copy, and so it can be wiped on its own when
 // a partner logs out (see the "clear-api-cache" message below).
@@ -30,6 +30,7 @@ const SHELL_FILES = [
   "/js/views/settings.js",
   "/js/views/partners.js",
   "/js/views/expensePresets.js",
+  "/icons/logo.svg",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
 ];

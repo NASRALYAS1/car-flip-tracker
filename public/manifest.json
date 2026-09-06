@@ -1,17 +1,27 @@
 {
-  "name": "تجارة السيارات",
-  "short_name": "تجارة السيارات",
-  "description": "تطبيق تتبع شراء وبيع وأرباح السيارات",
+  "name": "تطبيق الشركاء",
+  "short_name": "تطبيق الشركاء",
+  "description": "تطبيق الشركاء لمتابعة شراء وبيع السيارات والأرباح والديون",
   "start_url": "/#/dashboard",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#0f172a",
+  "background_color": "#0b1120",
   "theme_color": "#0f172a",
   "lang": "ar",
   "dir": "rtl",
   "icons": [
-    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
   ]
 }
