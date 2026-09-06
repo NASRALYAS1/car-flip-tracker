@@ -104,6 +104,27 @@ export async function listBackups(bucket: R2Bucket): Promise<BackupInfo[]> {
 // snapshot-time columns (not today's schema) so restoring an older backup
 // taken before a later migration added a column still works — the DB just
 // fills that column with its own default.
+// Every backup taken before the private personal_debts list became the shared
+// people_debts one holds the old table under the old name — and the check
+// below requires every current table to be present, so without this each of
+// those snapshots would be rejected as corrupt. That would have quietly
+// destroyed the ability to restore anything from before the rename, which is
+// the one thing backups exist for. Translated on read rather than rewritten
+// in storage, so the files on disk stay exactly as they were taken.
+function upgradeOldSnapshot(snapshot: Record<string, unknown>): void {
+  if (Array.isArray(snapshot.people_debts) || !Array.isArray(snapshot.personal_debts)) return;
+
+  snapshot.people_debts = (snapshot.personal_debts as Record<string, unknown>[]).map((row) => {
+    const { owner_user_id, direction, ...rest } = row;
+    return {
+      ...rest,
+      recorded_by: owner_user_id ?? null,
+      direction: direction === "i_owe_them" ? "we_owe_them" : "they_owe_us",
+    };
+  });
+  delete snapshot.personal_debts;
+}
+
 export async function restoreFromBackup(db: D1Database, bucket: R2Bucket, key: string): Promise<void> {
   if (!key.startsWith(BACKUP_PREFIX)) throw new Error("مسار النسخة الاحتياطية غير صالح");
 
@@ -116,6 +137,8 @@ export async function restoreFromBackup(db: D1Database, bucket: R2Bucket, key: s
   } catch {
     throw new Error("ملف النسخة الاحتياطية تالف");
   }
+  upgradeOldSnapshot(snapshot);
+
   if (!BACKUP_TABLES.every((t) => Array.isArray(snapshot[t]))) {
     throw new Error("ملف النسخة الاحتياطية غير صالح");
   }
