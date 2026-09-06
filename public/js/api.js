@@ -21,8 +21,11 @@ function esc(value) {
 // But these endpoints are themselves the "prove who you are" step, where a
 // 401 is an expected, on-page-recoverable outcome (wrong password/recovery
 // code), not a dead session — they need their real server error message
-// shown inline instead of being swallowed by a redirect.
-const AUTH_ATTEMPT_PATHS = ["/auth/login", "/auth/recover"];
+// shown inline instead of being swallowed by a redirect. /admin/reset is on
+// the list for the same reason: it re-checks the account password before
+// wiping the business, so a typo there must say "wrong password" rather than
+// silently throwing the user out to the login screen.
+const AUTH_ATTEMPT_PATHS = ["/auth/login", "/auth/recover", "/admin/reset"];
 
 const api = {
   async request(method, path, body) {

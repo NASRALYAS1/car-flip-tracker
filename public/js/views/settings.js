@@ -117,6 +117,20 @@ Views.settings = async function (container) {
     </div>
 
     <div class="settings-group">
+      <div class="group-title">منطقة الخطر</div>
+      <div class="settings-list">
+        <div class="settings-row danger" data-panel="reset">
+          <span class="row-icon">🗑️</span>
+          <span class="row-label">حذف كل البيانات والبدء من جديد</span>
+          <span class="row-chevron">›</span>
+        </div>
+      </div>
+      <div id="reset-panel" class="hidden">
+        <div id="reset-section"></div>
+      </div>
+    </div>
+
+    <div class="settings-group">
       <div class="settings-list">
         <div class="settings-row danger" id="logout-btn">
           <span class="row-icon">↩️</span>
@@ -140,6 +154,10 @@ Views.settings = async function (container) {
         if (row.dataset.panel === "restore" && !panel.dataset.loaded) {
           panel.dataset.loaded = "1";
           renderAdvancedSection(panel.querySelector("#advanced-section"));
+        }
+        if (row.dataset.panel === "reset" && !panel.dataset.loaded) {
+          panel.dataset.loaded = "1";
+          renderResetSection(panel.querySelector("#reset-section"));
         }
         panel.scrollIntoView({ block: "nearest", behavior: "smooth" });
       }
@@ -267,6 +285,86 @@ function renderRestoreConfirm(section, key, label) {
       wrap.querySelector("#restore-msg").innerHTML = `<div class="error-msg">${esc(err.message)}</div>`;
       btn.disabled = false;
       btn.textContent = "تأكيد الاستعادة";
+    }
+  });
+}
+
+// Clearing the app for a real business after a testing period. Two locks on
+// it, because this is the one action in the app with no undo beyond a single
+// snapshot: an exact phrase to retype, so it can't happen by tapping through,
+// and the account password, so an unlocked phone left on a desk isn't enough.
+// The server checks both again — these are here to make the weight of it
+// obvious, not to be the security.
+const RESET_PHRASE = "حذف كل البيانات";
+
+function renderResetSection(section) {
+  section.innerHTML = `
+    <div class="card" style="border-color:var(--red)">
+      <p style="margin:0 0 10px;font-weight:800;color:var(--red)">هذا الإجراء ما ينرجع</p>
+      <p style="margin:0 0 10px;color:var(--text-dim);font-size:0.85rem;line-height:1.75">
+        ينمسح كل شي سجّلته: السيارات، المبيعات، المصاريف، الصور، الأقساط ودفعاتها،
+        التبديلات، ديون الشركاء، والديون الشخصية — وكذلك كل النسخ الاحتياطية القديمة.
+      </p>
+      <p style="margin:0 0 14px;color:var(--text-dim);font-size:0.85rem;line-height:1.75">
+        يبقى مثل ما هو: حسابات الشركاء وكلمات المرور ورموز الاسترجاع، اسم المعرض
+        وأسماء الشركاء ونسب الأرباح وسعر الصرف، وقوالب المصاريف.
+        وتنحفظ نسخة احتياطية وحدة قبل الحذف مباشرة، تحسّباً لأي شي.
+      </p>
+      <div class="field">
+        <label>اكتب هذي العبارة بالضبط للتأكيد</label>
+        <input type="text" id="reset-phrase" placeholder="${esc(RESET_PHRASE)}" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label>كلمة مرور حسابك</label>
+        <input type="password" id="reset-password" autocomplete="current-password" />
+      </div>
+      <div id="reset-msg"></div>
+      <button class="btn danger" id="reset-btn" disabled>حذف كل البيانات نهائياً</button>
+    </div>
+  `;
+
+  const phraseInput = section.querySelector("#reset-phrase");
+  const passwordInput = section.querySelector("#reset-password");
+  const btn = section.querySelector("#reset-btn");
+
+  const sync = () => {
+    const phraseOk = phraseInput.value.trim().replace(/\s+/g, " ") === RESET_PHRASE;
+    btn.disabled = !phraseOk || !passwordInput.value;
+  };
+  phraseInput.addEventListener("input", sync);
+  passwordInput.addEventListener("input", sync);
+
+  btn.addEventListener("click", async () => {
+    const sure = await UI.confirm(
+      "آخر تأكيد: كل بيانات العمل راح تنمسح نهائياً ويبدأ التطبيق فاضي. تكمّل؟",
+      { danger: true, okText: "احذف كل شي" }
+    );
+    if (!sure) return;
+
+    btn.disabled = true;
+    btn.textContent = "جاري الحذف...";
+    try {
+      const result = await api.post("/admin/reset", {
+        confirm_phrase: phraseInput.value,
+        password: passwordInput.value,
+      });
+      const removed = Object.values(result.deleted).reduce((sum, n) => sum + n, 0);
+      section.innerHTML = `
+        <div class="card" style="border-color:var(--green)">
+          <p style="margin:0 0 8px;font-weight:800;color:var(--green)">تم حذف كل البيانات</p>
+          <p style="margin:0 0 14px;color:var(--text-dim);font-size:0.85rem;line-height:1.75">
+            انمسح ${removed} سجل و${result.photos_deleted} صورة. التطبيق الحين فاضي وجاهز للبيانات الحقيقية.
+          </p>
+          <button class="btn" id="reset-reload-btn">افتح التطبيق من جديد</button>
+        </div>`;
+      section.querySelector("#reset-reload-btn").addEventListener("click", () => {
+        window.location.hash = "#/dashboard";
+        window.location.reload();
+      });
+    } catch (err) {
+      section.querySelector("#reset-msg").innerHTML = `<div class="error-msg">${esc(err.message)}</div>`;
+      btn.textContent = "حذف كل البيانات نهائياً";
+      sync();
     }
   });
 }

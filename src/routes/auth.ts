@@ -15,8 +15,7 @@ import { requireAuth } from "../middleware/requireAuth";
 
 export const authRoutes = new Hono<AppEnv>();
 
-const MAX_FAILED_ATTEMPTS = 5;
-const LOCKOUT_MINUTES = 15;
+import { MAX_FAILED_ATTEMPTS, LOCKOUT_MINUTES } from "../lib/lockout";
 
 authRoutes.post("/login", async (c) => {
   const body = await c.req.json<{ username?: string; password?: string }>();

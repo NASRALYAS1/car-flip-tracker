@@ -152,7 +152,7 @@ a { color: var(--accent); text-decoration: none; }
 }
 .btn.danger { background: linear-gradient(180deg, #fb7676, #ef4444); color: #300; box-shadow: 0 8px 24px -10px #ef444455; }
 .btn.small { width: auto; padding: 9px 16px; font-size: 0.9rem; }
-.btn:disabled { opacity: 0.6; transform: none; }
+.btn:disabled { opacity: 0.6; transform: none; cursor: not-allowed; }
 .btn-row { display: flex; gap: 10px; margin-top: 12px; }
 .btn-row .btn { width: auto; flex: 1; }
 

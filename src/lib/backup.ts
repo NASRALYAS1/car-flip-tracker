@@ -12,12 +12,49 @@ const BACKUP_TABLES = [
   "settings",
 ] as const;
 
+// A restore empties these tables and refills them, and the rows point at each
+// other: a car points at the trade it was acquired through, a sale and an
+// expense and a photo each point at their car, a payment at its sale. So the
+// two halves of a restore need opposite orders — clear children before their
+// parents, then insert parents before their children. Doing it one table at a
+// time (delete cars, refill cars, delete trades, refill trades) inserts a car
+// whose trade hasn't come back yet, and the foreign key rejects the whole
+// batch. That failed for any business that had ever recorded a trade, which
+// in a car-trading app is most of them.
+const DELETE_ORDER = [
+  "installment_payments",
+  "sales",
+  "expenses",
+  "car_photos",
+  "cars",
+  "trades",
+  "partner_loans",
+  "personal_debts",
+  "settings",
+] as const;
+
+const INSERT_ORDER = [
+  "settings",
+  "trades",
+  "cars",
+  "expenses",
+  "sales",
+  "installment_payments",
+  "car_photos",
+  "partner_loans",
+  "personal_debts",
+] as const;
+
 async function allRows<T = unknown>(db: D1Database, table: string): Promise<T[]> {
   const { results } = await db.prepare(`SELECT * FROM ${table}`).all<T>();
   return results ?? [];
 }
 
-export async function runBackup(db: D1Database, bucket: R2Bucket): Promise<string> {
+export async function runBackup(
+  db: D1Database,
+  bucket: R2Bucket,
+  label?: string
+): Promise<string> {
   const exportedAt = new Date().toISOString();
 
   const snapshot: Record<string, unknown> = { exported_at: exportedAt };
@@ -25,7 +62,11 @@ export async function runBackup(db: D1Database, bucket: R2Bucket): Promise<strin
     snapshot[table] = await allRows(db, table);
   }
 
-  const key = `${BACKUP_PREFIX}${exportedAt.replace(/[:.]/g, "-")}.json`;
+  // The label goes after the timestamp, never before it: both listBackups
+  // and pruneOldBackups order these keys as plain strings and rely on the
+  // ISO timestamp leading, so a prefix would silently break both.
+  const suffix = label ? `-${label.replace(/[^a-z0-9-]/gi, "")}` : "";
+  const key = `${BACKUP_PREFIX}${exportedAt.replace(/[:.]/g, "-")}${suffix}.json`;
   await bucket.put(key, JSON.stringify(snapshot, null, 2), {
     httpMetadata: { contentType: "application/json" },
   });
@@ -80,8 +121,10 @@ export async function restoreFromBackup(db: D1Database, bucket: R2Bucket, key: s
   }
 
   const statements = [];
-  for (const table of BACKUP_TABLES) {
+  for (const table of DELETE_ORDER) {
     statements.push(db.prepare(`DELETE FROM ${table}`));
+  }
+  for (const table of INSERT_ORDER) {
     for (const row of snapshot[table] as Record<string, unknown>[]) {
       // Column names come from a JSON file and get interpolated into SQL
       // (they can't be bound as parameters), so they're validated as plain
