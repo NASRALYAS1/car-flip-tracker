@@ -7,7 +7,7 @@ const BACKUP_TABLES = [
   "installment_payments",
   "trades",
   "partner_loans",
-  "personal_debts",
+  "people_debts",
   "car_photos",
   "settings",
 ] as const;
@@ -29,7 +29,7 @@ const DELETE_ORDER = [
   "cars",
   "trades",
   "partner_loans",
-  "personal_debts",
+  "people_debts",
   "settings",
 ] as const;
 
@@ -42,7 +42,7 @@ const INSERT_ORDER = [
   "installment_payments",
   "car_photos",
   "partner_loans",
-  "personal_debts",
+  "people_debts",
 ] as const;
 
 async function allRows<T = unknown>(db: D1Database, table: string): Promise<T[]> {

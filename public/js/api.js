@@ -5,7 +5,7 @@ window.Views = {};
 // partner's display name -- has to be escaped on the way in. Unescaped, a
 // string like `<img src=x onerror=...>` stored in any field becomes script
 // that runs inside another partner's logged-in session: it can read the
-// whole business, read that partner's private personal debts, or change
+// whole business, record debts against it, or change
 // their password. Escape at the point of rendering, never trust the source.
 function esc(value) {
   if (value === null || value === undefined) return "";

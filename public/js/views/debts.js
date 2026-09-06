@@ -1,6 +1,28 @@
-Views.debts = async function (container) {
+Views.debts = async function (container, tab) {
+  const activeTab = tab === "people" ? "people" : "partners";
+
+  container.innerHTML = `
+    <div class="topbar"><h1>🤝 الديون</h1></div>
+    <div class="segmented">
+      <button class="${activeTab === "partners" ? "active" : ""}" data-tab="partners">بين الشركاء</button>
+      <button class="${activeTab === "people" ? "active" : ""}" data-tab="people">ديون الناس</button>
+    </div>
+    <div id="debts-tab-body"><div class="spinner">جاري التحميل...</div></div>
+  `;
+
+  container.querySelectorAll(".segmented [data-tab]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      window.location.hash = btn.dataset.tab === "people" ? "#/debts/people" : "#/debts";
+    });
+  });
+
+  const body = container.querySelector("#debts-tab-body");
+  if (activeTab === "people") {
+    await renderPeopleDebtsTab(body);
+    return;
+  }
   const data = await api.get("/debts");
-  renderDebts(container, data);
+  renderPartnerDebts(body, data);
 };
 
 function userName(id) {
@@ -51,7 +73,7 @@ function renderDebtEntries(entries) {
     .join("");
 }
 
-function renderDebts(container, data) {
+function renderPartnerDebts(container, data) {
   const balanceCards = data.net_balances
     .map((b) => {
       if (b.net_usd_cents === 0) {
@@ -71,7 +93,6 @@ function renderDebts(container, data) {
   const activeUsers = appState.users.filter((u) => u.is_active);
 
   container.innerHTML = `
-    <div class="topbar"><h1>🤝 الديون بين الشريكين</h1></div>
     ${balanceCards}
 
     <div class="btn-row" style="margin:12px 0">
@@ -143,7 +164,7 @@ function renderDebts(container, data) {
 
   async function refresh() {
     const fresh = await api.get("/debts");
-    renderDebts(container, fresh);
+    renderPartnerDebts(container, fresh);
   }
 
   const form = container.querySelector("#debt-form");

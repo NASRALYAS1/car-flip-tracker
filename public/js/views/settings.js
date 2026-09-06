@@ -55,18 +55,6 @@ Views.settings = async function (container) {
     </div>
 
     <div class="settings-group">
-      <div class="group-title">خاص بيك</div>
-      <div class="settings-list">
-        <div class="settings-row" data-nav="#/personal-debts">
-          <span class="row-icon">🔒</span>
-          <span class="row-label">ديوني الشخصية</span>
-          <span class="row-value">ما يشوفها غيرك</span>
-          <span class="row-chevron">›</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="settings-group">
       <div class="group-title">الأمان</div>
       <div class="settings-list">
         <div class="settings-row" data-panel="lock">

@@ -1,4 +1,4 @@
-// Offline queue, deliberately scoped to personal debts only.
+// Offline queue, deliberately scoped to the people-debts list only.
 //
 // Everything else in this app is shared between partners, and queueing those
 // writes offline would let two people change the same sale from two phones
@@ -9,7 +9,7 @@
 // Personal debts are the one exception: they're private to a single partner,
 // so nobody else can be editing the same row. Single writer, no conflicts.
 const Offline = {
-  KEY: "personal_debts_outbox",
+  KEY: "people_debts_outbox",
 
   isOffline() {
     return !navigator.onLine;
@@ -115,9 +115,9 @@ const Offline = {
     try {
       for (const entry of queue) {
         try {
-          if (entry.op === "create") await api.post("/personal-debts", entry.payload);
-          else if (entry.op === "patch") await api.patch(`/personal-debts/${entry.serverId}`, entry.payload);
-          else if (entry.op === "delete") await api.del(`/personal-debts/${entry.serverId}`);
+          if (entry.op === "create") await api.post("/people-debts", entry.payload);
+          else if (entry.op === "patch") await api.patch(`/people-debts/${entry.serverId}`, entry.payload);
+          else if (entry.op === "delete") await api.del(`/people-debts/${entry.serverId}`);
           synced++;
         } catch (err) {
           // A 4xx is the server refusing this specific change (bad data, or

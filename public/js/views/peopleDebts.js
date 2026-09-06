@@ -1,4 +1,7 @@
-Views.personalDebts = async function (container) {
+// Rendered into the "ديون الناس" tab of the الديون screen. Shared: every
+// partner sees and edits the same list, so the totals here are the business's
+// position with the outside world, not one person's.
+async function renderPeopleDebtsTab(container) {
   // Anything still queued from an offline session goes up first, so the
   // list below reflects the server rather than fighting with the queue.
   await Offline.flush();
@@ -6,20 +9,25 @@ Views.personalDebts = async function (container) {
   let serverDebts = [];
   let offlineOnly = false;
   try {
-    serverDebts = await api.get("/personal-debts");
+    serverDebts = await api.get("/people-debts");
   } catch (err) {
     // No connection and nothing cached — still show whatever is queued
     // locally rather than an error page.
     offlineOnly = true;
   }
-  renderPersonalDebts(container, Offline.applyTo(serverDebts), offlineOnly);
-};
+  renderPeopleDebts(container, Offline.applyTo(serverDebts), offlineOnly);
+}
 
-function renderPersonalDebtRows(debts) {
+function peopleDebtRecorder(userId) {
+  const u = appState.users.find((x) => x.id === userId);
+  return u ? u.display_name : "شريك سابق";
+}
+
+function renderPeopleDebtRows(debts) {
   if (!debts.length) return '<p style="color:var(--text-dim)">لا يوجد شي مسجل بعد</p>';
   return debts
     .map((d) => {
-      const dirLabel = d.direction === "i_owe_them" ? "أنا مدين له" : "هو مدين لي";
+      const dirLabel = d.direction === "we_owe_them" ? "إحنا مدينين له" : "هو مدين إلنا";
       return `
     <div class="list-item" data-debt-id="${d.id}" style="${d.is_settled ? "opacity:.55" : ""}">
       <div>
@@ -34,22 +42,19 @@ function renderPersonalDebtRows(debts) {
     .join("");
 }
 
-function renderPersonalDebts(container, debts, offlineOnly = false) {
+function renderPeopleDebts(container, debts, offlineOnly = false) {
   const active = debts.filter((d) => !d.is_settled);
-  const totalTheyOweMe = active
-    .filter((d) => d.direction === "they_owe_me")
+  const totalTheyOweUs = active
+    .filter((d) => d.direction === "they_owe_us")
     .reduce((s, d) => s + d.amount_usd_cents, 0);
-  const totalIOweThem = active
-    .filter((d) => d.direction === "i_owe_them")
+  const totalWeOweThem = active
+    .filter((d) => d.direction === "we_owe_them")
     .reduce((s, d) => s + d.amount_usd_cents, 0);
 
   container.innerHTML = `
-    <div class="topbar">
-      <span class="back" data-back>→</span>
-      <h1>🔒 ديوني الشخصية</h1>
-    </div>
-    <p style="color:var(--text-dim);font-size:0.85rem;margin-top:-8px">
-      هذه الصفحة خاصة بيك بس — باقي الشركاء ما يشوفونها ولا يقدرون يوصلونها. غير مرتبطة بحسابات التجارة أو تقسيم الأرباح.
+    <p style="color:var(--text-dim);font-size:0.85rem;margin:0 0 12px">
+      ديون المعرض مع ناس من برّه — زبون باقي عليه فلوس، أو حساب على المعرض لأحد.
+      كل الشركاء يشوفون هذي القائمة ويقدرون يعدلونها. غير محسوبة ضمن أرباح التجارة.
     </p>
     ${
       offlineOnly
@@ -63,12 +68,12 @@ function renderPersonalDebts(container, debts, offlineOnly = false) {
 
     <div class="grid-2">
       <div class="stat">
-        <div class="num">${money.formatUsd(totalTheyOweMe)}</div>
-        <div class="label">الناس مدينين لي</div>
+        <div class="num">${money.formatUsd(totalTheyOweUs)}</div>
+        <div class="label">الناس مدينين إلنا</div>
       </div>
       <div class="stat">
-        <div class="num">${money.formatUsd(totalIOweThem)}</div>
-        <div class="label">أنا مدين للناس</div>
+        <div class="num">${money.formatUsd(totalWeOweThem)}</div>
+        <div class="label">إحنا مدينين للناس</div>
       </div>
     </div>
 
@@ -78,8 +83,8 @@ function renderPersonalDebts(container, debts, offlineOnly = false) {
         <div class="field"><label>اسم الشخص</label><input name="person_name" required /></div>
         <div class="field"><label>شنو الاتجاه؟</label>
           <select name="direction">
-            <option value="they_owe_me">هو مدين لي (لازم يرجعلي فلوس)</option>
-            <option value="i_owe_them">أنا مدين له (لازم أرجعله فلوس)</option>
+            <option value="they_owe_us">هو مدين إلنا (لازم يرجع فلوس للمعرض)</option>
+            <option value="we_owe_them">إحنا مدينين له (لازم المعرض يرجعله فلوس)</option>
           </select>
         </div>
         ${money.inputHtml("amount", "المبلغ")}
@@ -92,12 +97,10 @@ function renderPersonalDebts(container, debts, offlineOnly = false) {
       </form>
     </div>
 
-    <input type="search" id="personal-debts-search" placeholder="🔍 دوّر بالاسم أو السبب أو الملاحظات..." style="margin-bottom:12px" />
-    <div id="personal-debts-list">${renderPersonalDebtRows(debts)}</div>
-    <div id="personal-debts-msg"></div>
+    <input type="search" id="people-debts-search" placeholder="🔍 دوّر بالاسم أو السبب أو الملاحظات..." style="margin-bottom:12px" />
+    <div id="people-debts-list">${renderPeopleDebtRows(debts)}</div>
+    <div id="people-debts-msg"></div>
   `;
-
-  container.querySelector("[data-back]").addEventListener("click", () => (window.location.hash = "#/settings"));
 
   container.querySelector("#toggle-add-debt").addEventListener("click", () => {
     container.querySelector("#add-debt-wrap").classList.toggle("hidden");
@@ -107,24 +110,24 @@ function renderPersonalDebts(container, debts, offlineOnly = false) {
     let fresh = [];
     let offline = false;
     try {
-      fresh = await api.get("/personal-debts");
+      fresh = await api.get("/people-debts");
     } catch {
       offline = true;
     }
-    renderPersonalDebts(container, Offline.applyTo(fresh), offline);
+    renderPeopleDebts(container, Offline.applyTo(fresh), offline);
   }
 
   function bindRowClicks() {
-    container.querySelectorAll("#personal-debts-list [data-debt-id]").forEach((row) => {
+    container.querySelectorAll("#people-debts-list [data-debt-id]").forEach((row) => {
       row.addEventListener("click", () => {
         const d = debts.find((x) => String(x.id) === row.dataset.debtId);
-        openPersonalDebtDetail(container, d, refresh);
+        openPeopleDebtDetail(container, d, refresh);
       });
     });
   }
   bindRowClicks();
 
-  container.querySelector("#personal-debts-search").addEventListener("input", (e) => {
+  container.querySelector("#people-debts-search").addEventListener("input", (e) => {
     const q = e.target.value.trim().toLowerCase();
     const filtered = !q
       ? debts
@@ -135,7 +138,7 @@ function renderPersonalDebts(container, debts, offlineOnly = false) {
             .toLowerCase()
             .includes(q)
         );
-    container.querySelector("#personal-debts-list").innerHTML = renderPersonalDebtRows(filtered);
+    container.querySelector("#people-debts-list").innerHTML = renderPeopleDebtRows(filtered);
     bindRowClicks();
   });
 
@@ -160,7 +163,7 @@ function renderPersonalDebts(container, debts, offlineOnly = false) {
       if (Offline.isOffline()) {
         Offline.queueCreate(payload);
       } else {
-        await api.post("/personal-debts", payload);
+        await api.post("/people-debts", payload);
       }
       await refresh();
     } catch (err) {
@@ -171,12 +174,12 @@ function renderPersonalDebts(container, debts, offlineOnly = false) {
         await refresh();
         return;
       }
-      container.querySelector("#personal-debts-msg").innerHTML = `<div class="error-msg">${esc(err.message)}</div>`;
+      container.querySelector("#people-debts-msg").innerHTML = `<div class="error-msg">${esc(err.message)}</div>`;
     }
   });
 }
 
-function openPersonalDebtDetail(container, debt, refresh) {
+function openPeopleDebtDetail(container, debt, refresh) {
   const existing = container.querySelector("#debt-detail-wrap");
   if (existing) existing.remove();
 
@@ -185,9 +188,10 @@ function openPersonalDebtDetail(container, debt, refresh) {
   wrap.className = "card";
   wrap.innerHTML = `
     <h2>${esc(debt.person_name)}</h2>
-    <div class="card-row"><span class="label">الاتجاه</span><span class="value">${debt.direction === "i_owe_them" ? "أنا مدين له" : "هو مدين لي"}</span></div>
+    <div class="card-row"><span class="label">الاتجاه</span><span class="value">${debt.direction === "we_owe_them" ? "إحنا مدينين له" : "هو مدين إلنا"}</span></div>
     <div class="card-row"><span class="label">المبلغ</span><span class="value">${money.formatDual(debt.amount_usd_cents, debt)}</span></div>
     <div class="card-row"><span class="label">التاريخ</span><span class="value">${esc(debt.debt_date)}</span></div>
+    ${debt.recorded_by ? `<div class="card-row"><span class="label">سجّله</span><span class="value">${esc(peopleDebtRecorder(debt.recorded_by))}</span></div>` : ""}
     ${debt.person_phone ? `<div class="card-row"><span class="label">الهاتف</span><span class="value">${esc(debt.person_phone)}</span></div>` : ""}
     ${debt.person_address ? `<div class="card-row"><span class="label">العنوان</span><span class="value">${esc(debt.person_address)}</span></div>` : ""}
     ${debt.reason ? `<div class="card-row"><span class="label">السبب</span><span class="value">${esc(debt.reason)}</span></div>` : ""}
@@ -199,7 +203,7 @@ function openPersonalDebtDetail(container, debt, refresh) {
     </div>
     <button class="btn secondary" id="pd-close-btn" style="margin-top:10px">إغلاق</button>
   `;
-  container.querySelector("#personal-debts-msg").before(wrap);
+  container.querySelector("#people-debts-msg").before(wrap);
   wrap.scrollIntoView({ block: "center" });
 
   wrap.querySelector("#pd-close-btn").addEventListener("click", () => wrap.remove());
@@ -210,7 +214,7 @@ function openPersonalDebtDetail(container, debt, refresh) {
       if (Offline.isOffline() || debt._pending) {
         Offline.queuePatch(debt.id, patch);
       } else {
-        await api.patch(`/personal-debts/${debt.id}`, patch);
+        await api.patch(`/people-debts/${debt.id}`, patch);
       }
     } catch (err) {
       if (!err.isOffline) {
@@ -229,7 +233,7 @@ function openPersonalDebtDetail(container, debt, refresh) {
       if (Offline.isOffline() || debt._pending) {
         Offline.queueDelete(debt.id);
       } else {
-        await api.del(`/personal-debts/${debt.id}`);
+        await api.del(`/people-debts/${debt.id}`);
       }
     } catch (err) {
       if (!err.isOffline) {
