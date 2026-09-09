@@ -64,6 +64,20 @@ export async function verifyPassword(password: string, stored: string): Promise<
   return diff === 0;
 }
 
+// Verifying a password costs ~100ms of PBKDF2; returning early because the
+// username doesn't exist costs nothing. That difference is measurable from
+// outside, and turns the login form into a username oracle — which is exactly
+// what the generic "username or password is wrong" message is meant to
+// prevent. Callers run this on the no-such-user path so both answers take the
+// same work. The hash is a real one over a value nothing can match.
+const ABSENT_USER_HASH =
+  "00000000000000000000000000000000:" +
+  "0000000000000000000000000000000000000000000000000000000000000000";
+
+export async function spendVerifyTime(password: string): Promise<void> {
+  await verifyPassword(password, ABSENT_USER_HASH);
+}
+
 export function newSessionToken(): string {
   return randomHex(32);
 }

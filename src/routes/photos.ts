@@ -15,6 +15,13 @@ photoUploadRoutes.post("/", async (c) => {
   const body = await c.req.parseBody();
   const file = body["photo"];
 
+  // Checked before the upload, so a photo for a car that doesn't exist
+  // isn't written to R2 and then orphaned when the row insert fails.
+  const car = await c.env.DB.prepare(`SELECT id FROM cars WHERE id = ?`)
+    .bind(carId)
+    .first<{ id: number }>();
+  if (!car) return c.json({ error: "السيارة غير موجودة" }, 404);
+
   if (!(file instanceof File)) {
     return c.json({ error: "الرجاء إرفاق صورة" }, 400);
   }

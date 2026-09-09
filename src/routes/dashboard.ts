@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { AppEnv } from "../types";
 import { requireAuth } from "../middleware/requireAuth";
 import { computeProfit } from "../lib/profit";
+import { installmentState } from "../lib/installments";
 
 export const dashboardRoutes = new Hono<AppEnv>();
 dashboardRoutes.use("*", requireAuth);
@@ -45,18 +46,29 @@ dashboardRoutes.get("/", async (c) => {
         `SELECT id, display_name, profit_split_pct FROM users WHERE is_active = 1 ORDER BY id`
       )
       .all<{ id: number; display_name: string; profit_split_pct: number }>(),
+    // Counted in JS through the shared rule rather than a second SQL one:
+    // this used to say "more than 30 days", while the car page and the
+    // nightly reminder said "more than one month", so the badge here could
+    // disagree with the car it was pointing at.
     db
       .prepare(
-        `SELECT COUNT(*) AS count
+        `SELECT s.sale_price_usd_cents, s.discount_usd_cents, s.down_payment_usd_cents,
+                s.sale_date,
+                MAX(ip.payment_date) AS last_payment_date,
+                COALESCE(SUM(ip.amount_usd_cents), 0) AS paid_usd_cents
          FROM sales s
-         JOIN cars c ON c.id = s.car_id
          LEFT JOIN installment_payments ip ON ip.sale_id = s.id
          WHERE s.sale_type = 'installment'
-         GROUP BY s.id
-         HAVING (s.sale_price_usd_cents - s.discount_usd_cents - s.down_payment_usd_cents - COALESCE(SUM(ip.amount_usd_cents), 0)) > 0
-           AND julianday('now') - julianday(COALESCE(MAX(ip.payment_date), s.sale_date)) > 30`
+         GROUP BY s.id`
       )
-      .all<{ count: number }>(),
+      .all<{
+        sale_price_usd_cents: number;
+        discount_usd_cents: number;
+        down_payment_usd_cents: number | null;
+        sale_date: string;
+        last_payment_date: string | null;
+        paid_usd_cents: number;
+      }>(),
   ]);
 
   const totalProfit = (soldCarsRows.results ?? []).reduce((sum, r) => {
@@ -104,6 +116,16 @@ dashboardRoutes.get("/", async (c) => {
     in_stock_count: inStockRow?.count ?? 0,
     in_stock_value_usd_cents: inStockRow?.value ?? 0,
     sold_this_month_count: soldThisMonthRow?.count ?? 0,
-    overdue_installments_count: overdueRow.results?.length ?? 0,
+    overdue_installments_count: (overdueRow.results ?? []).filter(
+      (r) =>
+        installmentState({
+          sale_price_usd_cents: r.sale_price_usd_cents,
+          discount_usd_cents: r.discount_usd_cents || 0,
+          down_payment_usd_cents: r.down_payment_usd_cents || 0,
+          paid_usd_cents: r.paid_usd_cents,
+          sale_date: r.sale_date,
+          last_payment_date: r.last_payment_date,
+        }).is_overdue
+    ).length,
   });
 });

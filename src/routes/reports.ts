@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { AppEnv } from "../types";
 import { requireAuth } from "../middleware/requireAuth";
 import { computeProfit } from "../lib/profit";
+import { installmentState } from "../lib/installments";
 
 export const reportsRoutes = new Hono<AppEnv>();
 reportsRoutes.use("*", requireAuth);
@@ -26,24 +27,26 @@ reportsRoutes.get("/installments", async (c) => {
   const rows = (results ?? []).map((r) => {
     const totalPaid =
       Number(r.down_payment_usd_cents ?? 0) + Number(r.paid_installments_usd_cents ?? 0);
-    const remaining =
-      Number(r.sale_price_usd_cents) - Number(r.discount_usd_cents ?? 0) - totalPaid;
+    const state = installmentState({
+      sale_price_usd_cents: Number(r.sale_price_usd_cents),
+      discount_usd_cents: Number(r.discount_usd_cents ?? 0),
+      down_payment_usd_cents: Number(r.down_payment_usd_cents ?? 0),
+      paid_usd_cents: Number(r.paid_installments_usd_cents ?? 0),
+      sale_date: r.sale_date as string,
+      last_payment_date: r.last_payment_date as string | null,
+    });
     const plannedMonthly = Number(r.planned_monthly_installment_usd_cents ?? 0);
     const remainingInstallmentsEstimate =
-      plannedMonthly > 0 ? Math.max(0, Math.ceil(remaining / plannedMonthly)) : null;
-
-    const baseline = (r.last_payment_date as string | null) ?? (r.sale_date as string);
-    const nextDue = new Date(baseline);
-    nextDue.setMonth(nextDue.getMonth() + 1);
-    const isOverdue = remaining > 0 && new Date() > nextDue;
+      plannedMonthly > 0 ? Math.max(0, Math.ceil(state.remaining_usd_cents / plannedMonthly)) : null;
 
     return {
       ...r,
       total_paid_usd_cents: totalPaid,
-      remaining_usd_cents: remaining,
+      remaining_usd_cents: state.remaining_usd_cents,
       remaining_installments_estimate: remainingInstallmentsEstimate,
-      is_overdue: isOverdue,
-      is_paid_off: remaining <= 0,
+      is_overdue: state.is_overdue,
+      is_paid_off: state.is_paid_off,
+      next_due: state.next_due,
     };
   });
 

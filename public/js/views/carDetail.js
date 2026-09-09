@@ -8,6 +8,18 @@ Views.carDetail = async function (container, id) {
 // change numbers behind an already-closed, already-reported deal. Cash
 // sales are settled the instant they're recorded; installment sales are
 // settled once nothing is left owing.
+function nextInstallmentDue(baselineDate) {
+  const d = new Date(baselineDate);
+  const dayOfMonth = d.getUTCDate();
+  d.setUTCDate(1);
+  d.setUTCMonth(d.getUTCMonth() + 1);
+  const lastDayOfTargetMonth = new Date(
+    Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)
+  ).getUTCDate();
+  d.setUTCDate(Math.min(dayOfMonth, lastDayOfTargetMonth));
+  return d;
+}
+
 function isSaleClosed(car) {
   // Traded away: its cost was already carried forward into the new car as a
   // one-time snapshot, so nothing added here afterward would affect any
@@ -623,8 +635,7 @@ function saleSectionHtml(car, closed) {
     const remaining = s.sale_price_usd_cents - discount - totalPaid;
     const isPaidOff = remaining <= 0;
     const lastPaymentDate = car.installment_payments[0]?.payment_date ?? null;
-    const nextDue = new Date(lastPaymentDate ?? s.sale_date);
-    nextDue.setMonth(nextDue.getMonth() + 1);
+    const nextDue = nextInstallmentDue(lastPaymentDate ?? s.sale_date);
     const isOverdue = !isPaidOff && new Date() > nextDue;
     // based on how much of the sale price is accounted for (paid + forgiven),
     // not just cash collected, so a discounted settlement correctly shows 100%

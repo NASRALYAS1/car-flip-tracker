@@ -45,6 +45,14 @@ paymentRoutes.post("/", async (c) => {
     return c.json({ error: (e as Error).message }, 400);
   }
 
+  // parseMoneyField allows zero (a zero purchase price is conceivable); a
+  // zero instalment is not, and it would sit in the payment history looking
+  // like money arrived when none did. A tiny IQD amount can round down to
+  // zero cents too, so this is checked after conversion, not before.
+  if (amount.usdCents <= 0) {
+    return c.json({ error: "مبلغ الدفعة يجب أن يكون أكبر من صفر" }, 400);
+  }
+
   const receivedBy = body.received_by ? Number(body.received_by) : c.get("userId");
 
   const result = await c.env.DB.prepare(

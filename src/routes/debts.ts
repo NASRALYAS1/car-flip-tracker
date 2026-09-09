@@ -65,6 +65,23 @@ debtsRoutes.post("/", async (c) => {
     return c.json({ error: "entry_type يجب أن يكون loan أو repayment" }, 400);
   }
 
+  // Both sides being the same partner nets to a balance against themselves,
+  // which the balance view has no sensible way to render.
+  const lenderId = Number(body.lender_user_id);
+  const borrowerId = Number(body.borrower_user_id);
+  if (lenderId === borrowerId) {
+    return c.json({ error: "لازم يكونون شريكين مختلفين" }, 400);
+  }
+
+  const partyCount = await c.env.DB.prepare(
+    `SELECT COUNT(*) AS n FROM users WHERE id IN (?, ?)`
+  )
+    .bind(lenderId, borrowerId)
+    .first<{ n: number }>();
+  if ((partyCount?.n ?? 0) !== 2) {
+    return c.json({ error: "أحد الشريكين غير موجود" }, 400);
+  }
+
   let amount;
   try {
     amount = parseMoneyField(body, "amount");
@@ -79,8 +96,8 @@ debtsRoutes.post("/", async (c) => {
      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   )
     .bind(
-      Number(body.lender_user_id),
-      Number(body.borrower_user_id),
+      lenderId,
+      borrowerId,
       body.entry_type,
       amount.amount,
       amount.currency,

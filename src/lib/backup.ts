@@ -165,10 +165,32 @@ export async function restoreFromBackup(db: D1Database, bucket: R2Bucket, key: s
     throw new Error("ملف النسخة الاحتياطية غير صالح");
   }
 
+  // Restoring wipes everything currently recorded and replaces it with the
+  // snapshot — which is exactly as destructive as a reset, and until now had
+  // none of a reset's safety net. Picking yesterday's backup by mistake threw
+  // away today's work with nothing to go back to. So the current state is
+  // snapshotted first, the same way resetBusinessData does it, and shows up
+  // in the restore list as the newest entry if the restore was the mistake.
+  await runBackup(db, bucket, "before-restore");
+
   const statements = [];
   for (const table of DELETE_ORDER) {
     statements.push(db.prepare(`DELETE FROM ${table}`));
   }
+  // A car_photos row is only half a photo: the bytes live in R2, and a reset
+  // deletes those permanently. Restoring the row anyway produces a car page
+  // full of thumbnails that will never load, with no way to tell a broken
+  // one from a slow one. Rows whose object is actually gone are dropped, so
+  // what comes back is what can genuinely be shown.
+  const restorablePhotos: Record<string, unknown>[] = [];
+  for (const row of (snapshot.car_photos as Record<string, unknown>[]) ?? []) {
+    const r2Key = row.r2_key;
+    if (typeof r2Key !== "string") continue;
+    const head = await bucket.head(r2Key).catch(() => null);
+    if (head) restorablePhotos.push(row);
+  }
+  snapshot.car_photos = restorablePhotos;
+
   for (const table of INSERT_ORDER) {
     for (const row of snapshot[table] as Record<string, unknown>[]) {
       // Column names come from a JSON file and get interpolated into SQL

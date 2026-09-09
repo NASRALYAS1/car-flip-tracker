@@ -10,6 +10,7 @@ import {
   readSessionCookie,
   generateRecoveryCode,
   normalizeRecoveryCode,
+  spendVerifyTime,
 } from "../lib/auth";
 import { requireAuth } from "../middleware/requireAuth";
 
@@ -44,7 +45,12 @@ authRoutes.post("/login", async (c) => {
   // locked/wrong password, so login can't be used to enumerate usernames
   const genericError = () => c.json({ error: "اسم المستخدم أو كلمة المرور غير صحيحة" }, 401);
 
-  if (!user) return genericError();
+  if (!user) {
+    // Same work as a real check, so "no such user" and "wrong password"
+    // can't be told apart by how long the answer takes.
+    await spendVerifyTime(password);
+    return genericError();
+  }
 
   if (user.locked_until && new Date(user.locked_until) > new Date()) {
     return c.json(
@@ -117,7 +123,10 @@ authRoutes.post("/recover", async (c) => {
     }>();
 
   const genericError = () => c.json({ error: "اسم المستخدم أو رمز الاسترجاع غير صحيح" }, 401);
-  if (!user) return genericError();
+  if (!user) {
+    await spendVerifyTime(recoveryCode);
+    return genericError();
+  }
 
   if (user.locked_until && new Date(user.locked_until) > new Date()) {
     return c.json(

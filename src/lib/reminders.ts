@@ -1,5 +1,6 @@
 import type { Bindings } from "../types";
 import { notifyAllPartners } from "./webpush";
+import { installmentState } from "./installments";
 
 type InstallmentSaleRow = {
   sale_id: number;
@@ -13,12 +14,6 @@ type InstallmentSaleRow = {
   last_payment_date: string | null;
   paid_usd_cents: number;
 };
-
-function addMonths(iso: string, months: number): Date {
-  const d = new Date(iso);
-  d.setMonth(d.getMonth() + months);
-  return d;
-}
 
 export async function checkOverdueInstallments(env: Bindings, db: D1Database): Promise<number> {
   const { results } = await db
@@ -40,16 +35,19 @@ export async function checkOverdueInstallments(env: Bindings, db: D1Database): P
   let overdueCount = 0;
 
   for (const row of results ?? []) {
-    const totalPaid = row.down_payment_usd_cents + row.paid_usd_cents;
-    const remaining = row.sale_price_usd_cents - row.discount_usd_cents - totalPaid;
-    if (remaining <= 0) continue;
-
-    const baseline = row.last_payment_date ?? row.sale_date;
-    const nextDue = addMonths(baseline, 1);
-    if (today <= nextDue) continue;
+    const state = installmentState({
+      sale_price_usd_cents: row.sale_price_usd_cents,
+      discount_usd_cents: row.discount_usd_cents,
+      down_payment_usd_cents: row.down_payment_usd_cents,
+      paid_usd_cents: row.paid_usd_cents,
+      sale_date: row.sale_date,
+      last_payment_date: row.last_payment_date,
+      now: today,
+    });
+    if (!state.is_overdue) continue;
 
     overdueCount++;
-    const remainingUsd = (remaining / 100).toLocaleString("en-US");
+    const remainingUsd = (state.remaining_usd_cents / 100).toLocaleString("en-US");
     const carLabel = row.name;
     const buyer = row.buyer_name ? ` (${row.buyer_name})` : "";
     await notifyAllPartners(

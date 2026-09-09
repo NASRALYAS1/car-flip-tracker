@@ -15,6 +15,13 @@ expenseRoutes.post("/", async (c) => {
     return c.json({ error: "الوصف وتاريخ المصروف مطلوبة" }, 400);
   }
 
+  // Without this the insert fails on the foreign key and surfaces as a 500,
+  // which reads as "the app is broken" rather than "that car isn't there".
+  const car = await c.env.DB.prepare(`SELECT id FROM cars WHERE id = ?`)
+    .bind(carId)
+    .first<{ id: number }>();
+  if (!car) return c.json({ error: "السيارة غير موجودة" }, 404);
+
   let amount;
   try {
     amount = parseMoneyField(body, "amount");
