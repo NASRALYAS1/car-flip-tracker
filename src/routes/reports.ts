@@ -9,7 +9,7 @@ reportsRoutes.use("*", requireAuth);
 reportsRoutes.get("/installments", async (c) => {
   const { results } = await c.env.DB.prepare(
     `SELECT
-       s.id AS sale_id, s.car_id, c.make, c.model, c.year,
+       s.id AS sale_id, s.car_id, c.name, c.year,
        s.buyer_name, s.buyer_contact, s.sale_date,
        s.sale_price_usd_cents, s.down_payment_usd_cents, s.discount_usd_cents,
        s.planned_monthly_installment_usd_cents,
@@ -58,7 +58,7 @@ reportsRoutes.get("/summary", async (c) => {
   const to = c.req.query("to") || "9999-12-31";
 
   const { results } = await c.env.DB.prepare(
-    `SELECT c.id AS car_id, c.make, c.model, c.year, s.sale_date, s.buyer_name,
+    `SELECT c.id AS car_id, c.name, c.year, s.sale_date, s.buyer_name,
             c.purchase_price_usd_cents,
             (SELECT COALESCE(SUM(amount_usd_cents), 0) FROM expenses WHERE car_id = c.id) AS total_expenses_usd_cents,
             s.sale_type, s.sale_price_usd_cents, s.discount_usd_cents, s.down_payment_usd_cents,
@@ -71,8 +71,7 @@ reportsRoutes.get("/summary", async (c) => {
     .bind(from, to)
     .all<{
       car_id: number;
-      make: string;
-      model: string;
+      name: string;
       year: number | null;
       sale_date: string;
       buyer_name: string | null;
@@ -149,7 +148,7 @@ reportsRoutes.get("/summary", async (c) => {
 // into, separate from any date range (it's always "as of right now").
 reportsRoutes.get("/inventory-aging", async (c) => {
   const { results } = await c.env.DB.prepare(
-    `SELECT c.id AS car_id, c.make, c.model, c.year, c.purchase_date,
+    `SELECT c.id AS car_id, c.name, c.year, c.purchase_date,
             c.purchase_price_usd_cents,
             COALESCE(SUM(e.amount_usd_cents), 0) AS total_expenses_usd_cents,
             CAST(julianday('now') - julianday(c.purchase_date) AS INTEGER) AS days_in_stock

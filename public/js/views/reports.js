@@ -49,7 +49,7 @@ Views.reports = async function (container) {
             (c) => `
       <div class="list-item" data-car-id="${c.car_id}">
         <div>
-          <div class="main">${esc(c.make)} ${esc(c.model)} ${esc(c.year || "")}</div>
+          <div class="main">${esc(c.name)} ${esc(c.year || "")}</div>
           <div class="sub">${esc(c.sale_date)}${c.buyer_name ? ` · ${esc(c.buyer_name)}` : ""}</div>
         </div>
         <div class="end">
@@ -69,7 +69,7 @@ Views.reports = async function (container) {
             return `
       <div class="list-item" data-car-id="${a.car_id}">
         <div>
-          <div class="main">${esc(a.make)} ${esc(a.model)} ${esc(a.year || "")}</div>
+          <div class="main">${esc(a.name)} ${esc(a.year || "")}</div>
           <div class="sub">اشتُريت بتاريخ ${esc(a.purchase_date)}</div>
         </div>
         <div class="end">

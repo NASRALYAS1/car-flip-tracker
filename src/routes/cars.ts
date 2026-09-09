@@ -76,8 +76,9 @@ carsRoutes.get("/", async (c) => {
 carsRoutes.post("/", async (c) => {
   const body = await c.req.json<Record<string, unknown>>();
 
-  if (!body.make || !body.model || !body.purchase_date) {
-    return c.json({ error: "الماركة والموديل وتاريخ الشراء مطلوبة" }, 400);
+  const carName = String(body.name ?? "").trim();
+  if (!carName || !body.purchase_date) {
+    return c.json({ error: "اسم السيارة وتاريخ الشراء مطلوبة" }, 400);
   }
 
   let price;
@@ -89,15 +90,14 @@ carsRoutes.post("/", async (c) => {
 
   const result = await c.env.DB.prepare(
     `INSERT INTO cars (
-       make, model, year, vin, color, mileage, purchase_date,
+       name, year, vin, color, mileage, purchase_date,
        purchase_price_amount, purchase_price_currency, purchase_price_exchange_rate,
        purchase_price_usd_cents, seller_name, seller_contact, condition_notes,
        status, created_by
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'in_stock', ?)`
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'in_stock', ?)`
   )
     .bind(
-      body.make,
-      body.model,
+      carName,
       body.year ?? null,
       body.vin ?? null,
       body.color ?? null,
@@ -207,8 +207,7 @@ carsRoutes.patch("/:id", async (c) => {
   if (!car) return c.json({ error: "السيارة غير موجودة" }, 404);
 
   const editable = [
-    "make",
-    "model",
+    "name",
     "year",
     "vin",
     "color",

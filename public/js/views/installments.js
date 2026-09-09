@@ -12,7 +12,7 @@ function renderInstallmentRows(rows) {
       return `
     <div class="list-item" data-car-id="${r.car_id}">
       <div>
-        <div class="main">${esc(r.make)} ${esc(r.model)} ${esc(r.year || "")}</div>
+        <div class="main">${esc(r.name)} ${esc(r.year || "")}</div>
         <div class="sub">${esc(r.buyer_name || "بدون اسم مشتري")}</div>
       </div>
       <div class="end">
@@ -47,7 +47,7 @@ Views.installments = async function (container) {
     const filtered = !q
       ? rows
       : rows.filter((r) =>
-          [r.make, r.model, r.year, r.buyer_name]
+          [r.name, r.year, r.buyer_name]
             .filter(Boolean)
             .join(" ")
             .toLowerCase()

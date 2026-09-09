@@ -112,6 +112,11 @@ export async function listBackups(bucket: R2Bucket): Promise<BackupInfo[]> {
 // the one thing backups exist for. Translated on read rather than rewritten
 // in storage, so the files on disk stay exactly as they were taken.
 function upgradeOldSnapshot(snapshot: Record<string, unknown>): void {
+  upgradePersonalDebts(snapshot);
+  upgradeCarNames(snapshot);
+}
+
+function upgradePersonalDebts(snapshot: Record<string, unknown>): void {
   if (Array.isArray(snapshot.people_debts) || !Array.isArray(snapshot.personal_debts)) return;
 
   snapshot.people_debts = (snapshot.personal_debts as Record<string, unknown>[]).map((row) => {
@@ -123,6 +128,23 @@ function upgradeOldSnapshot(snapshot: Record<string, unknown>): void {
     };
   });
   delete snapshot.personal_debts;
+}
+
+// Rows are inserted by their own keys, so a snapshot taken while cars still
+// had separate make/model columns would try to write a column that no longer
+// exists and fail the whole restore. Joined back into the single name exactly
+// as the migration did, so a restored car reads the same as a migrated one.
+function upgradeCarNames(snapshot: Record<string, unknown>): void {
+  if (!Array.isArray(snapshot.cars)) return;
+
+  snapshot.cars = (snapshot.cars as Record<string, unknown>[]).map((row) => {
+    if (!("make" in row) && !("model" in row)) return row;
+    const { make, model, ...rest } = row;
+    return {
+      ...rest,
+      name: rest.name ?? [make, model].filter(Boolean).join(" ").trim(),
+    };
+  });
 }
 
 export async function restoreFromBackup(db: D1Database, bucket: R2Bucket, key: string): Promise<void> {

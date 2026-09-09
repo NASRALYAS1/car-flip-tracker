@@ -4,8 +4,7 @@ import { notifyAllPartners } from "./webpush";
 type InstallmentSaleRow = {
   sale_id: number;
   car_id: number;
-  make: string;
-  model: string;
+  name: string;
   buyer_name: string | null;
   sale_date: string;
   sale_price_usd_cents: number;
@@ -25,7 +24,7 @@ export async function checkOverdueInstallments(env: Bindings, db: D1Database): P
   const { results } = await db
     .prepare(
       `SELECT
-         s.id AS sale_id, c.id AS car_id, c.make, c.model, s.buyer_name,
+         s.id AS sale_id, c.id AS car_id, c.name, s.buyer_name,
          s.sale_date, s.sale_price_usd_cents, s.down_payment_usd_cents, s.discount_usd_cents,
          MAX(ip.payment_date) AS last_payment_date,
          COALESCE(SUM(ip.amount_usd_cents), 0) AS paid_usd_cents
@@ -51,7 +50,7 @@ export async function checkOverdueInstallments(env: Bindings, db: D1Database): P
 
     overdueCount++;
     const remainingUsd = (remaining / 100).toLocaleString("en-US");
-    const carLabel = `${row.make} ${row.model}`;
+    const carLabel = row.name;
     const buyer = row.buyer_name ? ` (${row.buyer_name})` : "";
     await notifyAllPartners(
       env,

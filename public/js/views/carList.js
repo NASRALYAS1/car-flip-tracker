@@ -52,7 +52,7 @@ function renderCarListItems(cars, status) {
       return `
     <div class="list-item car-row ${outcome.isLoss ? "loss" : ""}" data-id="${car.id}">
       <div class="who">
-        <div class="main ${outcome.isLoss ? "loss" : ""}">${esc(car.make)} ${esc(car.model)}</div>
+        <div class="main ${outcome.isLoss ? "loss" : ""}">${esc(car.name)}</div>
         <div class="sub">${esc(sub || car.purchase_date)}</div>
       </div>
       <div class="end">
@@ -108,7 +108,7 @@ Views.carList = async function (container, status) {
     const filtered = !q
       ? cars
       : cars.filter((car) =>
-          [car.make, car.model, car.color, car.vin, car.year, car.seller_name]
+          [car.name, car.color, car.vin, car.year, car.seller_name]
             .filter(Boolean)
             .join(" ")
             .toLowerCase()

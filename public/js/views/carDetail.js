@@ -148,7 +148,7 @@ function bindDangerZone(container, car, opts) {
       if (car.installment_payments.length) parts.push(`${car.installment_payments.length} دفعة`);
 
       const first = await UI.confirm(
-        `حذف ${esc(car.make)} ${esc(car.model)} نهائياً؟${parts.length ? `<br><br>راح ينحذف معها: ${parts.join(" · ")}.` : ""}`,
+        `حذف ${esc(car.name)} نهائياً؟${parts.length ? `<br><br>راح ينحذف معها: ${parts.join(" · ")}.` : ""}`,
         { danger: true, okText: "كمّل" }
       );
       if (!first) return;
@@ -188,7 +188,7 @@ function renderCarDetail(container, car, opts = {}) {
   container.innerHTML = `
     <div class="topbar">
       <span class="back" data-back>→</span>
-      <h1>${esc(car.make)} ${esc(car.model)}</h1>
+      <h1>${esc(car.name)}</h1>
       <span class="badge ${car.status}">${CAR_STATUS_LABELS[car.status]}</span>
     </div>
     ${dealClosed ? dealBannerHtml(unlocked) : ""}
@@ -396,8 +396,7 @@ function openCarEditForm(container, car, opts = {}) {
   wrap.innerHTML = `
     <h2>تعديل بيانات السيارة</h2>
     <form id="edit-car-form">
-      <div class="field"><label>الماركة</label><input name="make" value="${esc(car.make)}" required /></div>
-      <div class="field"><label>الموديل</label><input name="model" value="${esc(car.model)}" required /></div>
+      <div class="field"><label>اسم السيارة</label><input name="name" value="${esc(car.name)}" required /></div>
       ${canEditPurchasePrice(car) ? money.inputHtml("purchase_price", "سعر الشراء", { currency: car.purchase_price_currency }) : ""}
       <div class="grid-2">
         <div class="field"><label>سنة الصنع</label><input type="number" name="year" value="${esc(car.year ?? "")}" /></div>
@@ -427,8 +426,7 @@ function openCarEditForm(container, car, opts = {}) {
     e.preventDefault();
     const fd = new FormData(form);
     const payload = {
-      make: fd.get("make"),
-      model: fd.get("model"),
+      name: fd.get("name"),
       year: fd.get("year") ? Number(fd.get("year")) : null,
       color: fd.get("color") || null,
       mileage: fd.get("mileage") ? Number(fd.get("mileage")) : null,
@@ -557,7 +555,7 @@ function chainHtml(chain, currentId) {
   const items = chain.cars
     .map((c, i) => {
       const arrow = i > 0 ? '<span class="arrow">←</span>' : "";
-      return `${arrow}<div class="chain-car ${c.id === currentId ? "current" : ""}" data-chain-id="${c.id}">${esc(c.make)} ${esc(c.model)}</div>`;
+      return `${arrow}<div class="chain-car ${c.id === currentId ? "current" : ""}" data-chain-id="${c.id}">${esc(c.name)}</div>`;
     })
     .join("");
   return `<div class="chain-strip">${items}</div>`;
@@ -818,8 +816,8 @@ function bindSaleSection(container, car, opts = {}) {
       const text = [
         s.buyer_name ? `مرحباً ${s.buyer_name}،` : "مرحباً،",
         isOverdue
-          ? `تذكير بخصوص قسط سيارتك (${car.make} ${car.model}) لدى ${businessName} — القسط متأخر عن موعده.`
-          : `تذكير ودّي بخصوص قسط سيارتك (${car.make} ${car.model}) لدى ${businessName}.`,
+          ? `تذكير بخصوص قسط سيارتك (${car.name}) لدى ${businessName} — القسط متأخر عن موعده.`
+          : `تذكير ودّي بخصوص قسط سيارتك (${car.name}) لدى ${businessName}.`,
         `المبلغ المتبقي: ${money.formatDualText(remainingUsdCents)}`,
         "نرجو التواصل لتسديد القسط بأقرب وقت ممكن. شكراً لتعاونكم.",
       ].join("\n");

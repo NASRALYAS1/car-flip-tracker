@@ -7,7 +7,7 @@ Views.tradeForm = async function (container, carId) {
   container.innerHTML = `
     <div class="topbar">
       <span class="back" data-back>→</span>
-      <h1>تبديل ${esc(car.make)} ${esc(car.model)}</h1>
+      <h1>تبديل ${esc(car.name)}</h1>
     </div>
     <div id="form-error"></div>
 
@@ -18,8 +18,7 @@ Views.tradeForm = async function (container, carId) {
 
     <h2>السيارة الجديدة الداخلة</h2>
     <form id="trade-form">
-      <div class="field"><label>الماركة</label><input name="make" required /></div>
-      <div class="field"><label>الموديل</label><input name="model" required /></div>
+      <div class="field"><label>اسم السيارة الجديدة</label><input name="name" required placeholder="نيسان صني" /></div>
       <div class="grid-2">
         <div class="field"><label>سنة الصنع</label><input type="number" name="year" /></div>
         <div class="field"><label>اللون</label><input name="color" /></div>
@@ -66,8 +65,7 @@ Views.tradeForm = async function (container, carId) {
     const fd = new FormData(form);
 
     const payload = {
-      make: fd.get("make"),
-      model: fd.get("model"),
+      name: fd.get("name"),
       year: fd.get("year") ? Number(fd.get("year")) : null,
       color: fd.get("color") || null,
       vin: fd.get("vin") || null,

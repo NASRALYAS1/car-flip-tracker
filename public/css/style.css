@@ -814,3 +814,46 @@ label { display: block; font-size: 0.82rem; color: var(--text-dim); margin-botto
   line-height: 1.6;
   margin: 7px 2px 0;
 }
+
+/* ---- optional photo picker on the add-car form ---- */
+/* Its own grid rather than reusing .photo-grid: these thumbnails carry a
+   remove button, so each cell is a wrapper rather than a bare <img>. */
+.photo-picks {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.photo-picks .pick { position: relative; }
+.photo-picks img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-soft);
+}
+.photo-picks .remove {
+  position: absolute;
+  top: 5px;
+  inset-inline-end: 5px;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 50%;
+  background: rgba(3, 8, 20, 0.72);
+  color: #fff;
+  font-size: 0.8rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+.photo-picks .remove:active { background: var(--red); }
+
+.picker-hint {
+  color: var(--text-faint);
+  font-size: 0.78rem;
+  line-height: 1.6;
+  margin: 8px 2px 0;
+}

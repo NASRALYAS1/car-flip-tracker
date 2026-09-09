@@ -18,8 +18,9 @@ tradeRoutes.post("/trade", async (c) => {
   const outgoingCarId = Number(c.req.param("id"));
   const body = await c.req.json<Record<string, unknown>>();
 
-  if (!body.make || !body.model || !body.trade_date) {
-    return c.json({ error: "بيانات السيارة الجديدة وتاريخ التبديل مطلوبة" }, 400);
+  const incomingName = String(body.name ?? "").trim();
+  if (!incomingName || !body.trade_date) {
+    return c.json({ error: "اسم السيارة الجديدة وتاريخ التبديل مطلوبة" }, 400);
   }
 
   const outgoingCar = await c.env.DB.prepare(
@@ -64,14 +65,13 @@ tradeRoutes.post("/trade", async (c) => {
   // 1) create the new incoming car (cost carried forward, no fabricated profit)
   const newCarResult = await c.env.DB.prepare(
     `INSERT INTO cars (
-       make, model, year, vin, color, mileage, purchase_date,
+       name, year, vin, color, mileage, purchase_date,
        purchase_price_amount, purchase_price_currency, purchase_price_exchange_rate,
        purchase_price_usd_cents, condition_notes, status, created_by
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'USD', NULL, ?, ?, 'in_stock', ?)`
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, 'USD', NULL, ?, ?, 'in_stock', ?)`
   )
     .bind(
-      body.make,
-      body.model,
+      incomingName,
       body.year ?? null,
       body.vin ?? null,
       body.color ?? null,

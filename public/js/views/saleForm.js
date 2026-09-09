@@ -5,7 +5,7 @@ Views.saleForm = async function (container, carId) {
   container.innerHTML = `
     <div class="topbar">
       <span class="back" data-back>→</span>
-      <h1>بيع ${esc(car.make)} ${esc(car.model)}</h1>
+      <h1>بيع ${esc(car.name)}</h1>
     </div>
     <div id="form-error"></div>
 

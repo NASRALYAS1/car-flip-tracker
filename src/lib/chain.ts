@@ -1,7 +1,6 @@
 export type ChainCar = {
   id: number;
-  make: string;
-  model: string;
+  name: string;
   year: number | null;
   status: string;
   purchase_price_usd_cents: number;
@@ -36,7 +35,7 @@ export async function getChainForCar(db: D1Database, carId: number): Promise<Cha
     if (carsById.has(id)) return carsById.get(id)!;
     const row = await db
       .prepare(
-        `SELECT id, make, model, year, status, purchase_price_usd_cents FROM cars WHERE id = ?`
+        `SELECT id, name, year, status, purchase_price_usd_cents FROM cars WHERE id = ?`
       )
       .bind(id)
       .first<ChainCar>();
