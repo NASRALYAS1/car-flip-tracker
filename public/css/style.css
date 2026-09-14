@@ -857,3 +857,63 @@ label { display: block; font-size: 0.82rem; color: var(--text-dim); margin-botto
   line-height: 1.6;
   margin: 8px 2px 0;
 }
+
+/* ---- whole-chain profit card ---- */
+.chain-profit-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.chain-profit-head h2 { margin: 0; }
+.chain-profit-count {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+.chain-profit-headline {
+  text-align: center;
+  font-size: 2rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  margin-top: 4px;
+}
+.chain-profit-caption {
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.chain-profit .gain { color: var(--green); }
+.chain-profit .loss { color: var(--red); }
+.chain-profit .value.received { color: var(--green); }
+.chain-profit-stats { margin-top: 4px; }
+.chain-profit-note {
+  color: var(--text-faint);
+  font-size: 0.78rem;
+  line-height: 1.6;
+  margin: 8px 2px 0;
+  text-align: center;
+}
+.chain-ledger {
+  margin-top: 12px;
+  border-top: 1px solid var(--border-soft);
+  padding-top: 8px;
+}
+.chain-ledger summary {
+  cursor: pointer;
+  color: var(--text-dim);
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 4px 0 8px;
+}
+.chain-ledger .card-row.total {
+  border-top: 1px solid var(--border);
+  margin-top: 6px;
+  padding-top: 10px;
+  font-weight: 800;
+}

@@ -2,9 +2,16 @@ import { Hono } from "hono";
 import type { AppEnv } from "../types";
 import { requireAuth } from "../middleware/requireAuth";
 import { parseMoneyField } from "../lib/money";
+import { chainCostUpdates } from "../lib/chainProfit";
 
 export const expenseRoutes = new Hono<AppEnv>();
 expenseRoutes.use("*", requireAuth);
+
+// Every write below goes out in one batch with chainCostUpdates. An expense on
+// a car that has been traded on changes what every later car in its chain
+// cost, and those purchase prices have to move in the same transaction as the
+// expense itself -- otherwise the chain's profit is wrong until something else
+// happens to touch it. For a car that isn't part of a chain it adds nothing.
 
 // mounted at /api/cars/:id/expenses
 expenseRoutes.post("/", async (c) => {
@@ -29,24 +36,24 @@ expenseRoutes.post("/", async (c) => {
     return c.json({ error: (e as Error).message }, 400);
   }
 
-  const result = await c.env.DB.prepare(
+  const insertExpense = c.env.DB.prepare(
     `INSERT INTO expenses (
        car_id, description, amount_amount, amount_currency, amount_exchange_rate,
        amount_usd_cents, category, expense_date, added_by
      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  )
-    .bind(
-      carId,
-      body.description,
-      amount.amount,
-      amount.currency,
-      amount.exchangeRate,
-      amount.usdCents,
-      body.category ?? null,
-      body.expense_date,
-      c.get("userId")
-    )
-    .run();
+  ).bind(
+    carId,
+    body.description,
+    amount.amount,
+    amount.currency,
+    amount.exchangeRate,
+    amount.usdCents,
+    body.category ?? null,
+    body.expense_date,
+    c.get("userId")
+  );
+  const costUpdates = await chainCostUpdates(c.env.DB, carId, new Map([[carId, amount.usdCents]]));
+  const results = await c.env.DB.batch([insertExpense, ...costUpdates]);
 
   if (amount.currency === "IQD" && amount.exchangeRate) {
     await c.env.DB.prepare(`UPDATE settings SET value = ? WHERE key = 'last_exchange_rate'`)
@@ -55,7 +62,7 @@ expenseRoutes.post("/", async (c) => {
   }
 
   const expense = await c.env.DB.prepare(`SELECT * FROM expenses WHERE id = ?`)
-    .bind(result.meta.last_row_id)
+    .bind(results[0]?.meta.last_row_id)
     .first();
 
   return c.json(expense, 201);
@@ -69,8 +76,17 @@ expenseItemRoutes.patch("/:id", async (c) => {
   const id = Number(c.req.param("id"));
   const body = await c.req.json<Record<string, unknown>>();
 
+  // Loaded up front for every edit, not just amount edits: the car it belongs
+  // to decides which chain to recompute, and a description-only edit to an
+  // expense that doesn't exist should say so rather than quietly return null.
+  const existing = await c.env.DB.prepare(`SELECT * FROM expenses WHERE id = ?`)
+    .bind(id)
+    .first<Record<string, unknown>>();
+  if (!existing) return c.json({ error: "المصروف غير موجود" }, 404);
+
   const sets: string[] = [];
   const values: unknown[] = [];
+  let amountDelta = 0;
 
   if ("description" in body) {
     sets.push("description = ?");
@@ -85,11 +101,6 @@ expenseItemRoutes.patch("/:id", async (c) => {
     values.push(body.expense_date);
   }
   if ("amount_amount" in body || "amount_currency" in body) {
-    const existing = await c.env.DB.prepare(`SELECT * FROM expenses WHERE id = ?`)
-      .bind(id)
-      .first<Record<string, unknown>>();
-    if (!existing) return c.json({ error: "المصروف غير موجود" }, 404);
-
     const merged = {
       amount_amount: body.amount_amount ?? existing.amount_amount,
       amount_currency: body.amount_currency ?? existing.amount_currency,
@@ -103,14 +114,21 @@ expenseItemRoutes.patch("/:id", async (c) => {
     }
     sets.push("amount_amount = ?", "amount_currency = ?", "amount_exchange_rate = ?", "amount_usd_cents = ?");
     values.push(amount.amount, amount.currency, amount.exchangeRate, amount.usdCents);
+    amountDelta = amount.usdCents - Number(existing.amount_usd_cents);
   }
 
   if (sets.length === 0) return c.json({ error: "لا يوجد شي للتعديل" }, 400);
 
   values.push(id);
-  await c.env.DB.prepare(`UPDATE expenses SET ${sets.join(", ")} WHERE id = ?`)
-    .bind(...values)
-    .run();
+  const updateExpense = c.env.DB.prepare(`UPDATE expenses SET ${sets.join(", ")} WHERE id = ?`).bind(
+    ...values
+  );
+  // Recomputed even when the amount didn't change: it costs a couple of reads,
+  // and it means any edit to an expense in a chain that has drifted puts the
+  // chain back in step.
+  const carId = Number(existing.car_id);
+  const costUpdates = await chainCostUpdates(c.env.DB, carId, new Map([[carId, amountDelta]]));
+  await c.env.DB.batch([updateExpense, ...costUpdates]);
 
   const expense = await c.env.DB.prepare(`SELECT * FROM expenses WHERE id = ?`).bind(id).first();
   return c.json(expense);
@@ -118,6 +136,20 @@ expenseItemRoutes.patch("/:id", async (c) => {
 
 expenseItemRoutes.delete("/:id", async (c) => {
   const id = Number(c.req.param("id"));
-  await c.env.DB.prepare(`DELETE FROM expenses WHERE id = ?`).bind(id).run();
+
+  const existing = await c.env.DB.prepare(`SELECT car_id, amount_usd_cents FROM expenses WHERE id = ?`)
+    .bind(id)
+    .first<{ car_id: number; amount_usd_cents: number }>();
+  if (!existing) return c.json({ error: "المصروف غير موجود" }, 404);
+
+  const costUpdates = await chainCostUpdates(
+    c.env.DB,
+    existing.car_id,
+    new Map([[existing.car_id, -existing.amount_usd_cents]])
+  );
+  await c.env.DB.batch([
+    c.env.DB.prepare(`DELETE FROM expenses WHERE id = ?`).bind(id),
+    ...costUpdates,
+  ]);
   return c.json({ ok: true });
 });

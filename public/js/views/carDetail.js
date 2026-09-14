@@ -206,6 +206,7 @@ function renderCarDetail(container, car, opts = {}) {
     ${dealClosed ? dealBannerHtml(unlocked) : ""}
 
     ${chainHtml(car.chain, car.id)}
+    ${chainProfitHtml(car.chain_profit)}
 
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
@@ -562,6 +563,82 @@ function openSaleEditForm(container, car, opts = {}) {
   });
 }
 
+// The whole chain's result, shown on every car in it: whichever car someone
+// opens, the question is the same -- what did this run of trades make. It is
+// worked out on the server from the first purchase, every expense and every
+// cash top-up, so the ledger underneath always adds up to the number above
+// it. An installment sale at the end shows both figures the dashboard works
+// with: what has actually been earned from payments so far, and what the
+// chain will make once the buyer finishes paying.
+function chainProfitHtml(cp) {
+  if (!cp) return "";
+
+  const row = (label, cents, tone = "") =>
+    `<div class="card-row"><span class="label">${label}</span><span class="value ${tone}">${money.formatUsd(cents)}</span></div>`;
+
+  const ledger = [row(`شراء ${esc(cp.steps[0].name)}`, cp.root_purchase_usd_cents)];
+  for (const step of cp.steps) {
+    if (step.expenses_usd_cents) {
+      ledger.push(row(`مصاريف ${esc(step.name)}`, step.expenses_usd_cents));
+    }
+    const out = step.traded_out;
+    if (out && out.cash_usd_cents > 0) {
+      ledger.push(row(`دفعنا فرق بالتبديل (${esc(out.trade_date)})`, out.cash_usd_cents));
+    } else if (out && out.cash_usd_cents < 0) {
+      // Cash that came back in at a trade lowers what the chain cost, so it is
+      // shown as the amount received rather than as a negative cost.
+      ledger.push(row(`استلمنا فرق بالتبديل (${esc(out.trade_date)})`, -out.cash_usd_cents, "received"));
+    }
+  }
+  ledger.push(
+    `<div class="card-row total"><span class="label">إجمالي تكلفة السلسلة</span><span class="value">${money.formatUsd(cp.total_cost_usd_cents)}</span></div>`
+  );
+
+  let headline;
+  if (cp.sale && cp.profit) {
+    const p = cp.profit;
+    const tone = p.target_profit_usd_cents < 0 || p.realized_profit_usd_cents < 0 ? "loss" : "gain";
+    if (p.is_accrued) {
+      headline = `
+        <div class="grid-2 chain-profit-stats">
+          <div class="stat"><div class="num ${tone}">${money.formatUsd(p.realized_profit_usd_cents)}</div><div class="label">الربح المحقق حتى الآن</div></div>
+          <div class="stat"><div class="num ${tone}">${money.formatUsd(p.target_profit_usd_cents)}</div><div class="label">الربح المتوقع عند اكتمال الأقساط</div></div>
+        </div>
+        <p class="chain-profit-note">آخر سيارة انباعت بالأقساط — الربح المحقق يزيد كل ما توصل دفعة، ويوصل للمتوقع لما يكمل المشتري التسديد.</p>`;
+    } else {
+      headline = `
+        <div class="chain-profit-headline ${tone}">${money.formatUsd(p.realized_profit_usd_cents)}</div>
+        <div class="chain-profit-caption">${p.realized_profit_usd_cents < 0 ? "خسارة السلسلة كاملة" : "ربح السلسلة كاملة"}</div>`;
+    }
+    ledger.push(row(`بيع ${esc(cp.final_car_name)} (${esc(cp.sale.sale_date)})`, cp.sale.sale_price_usd_cents));
+    if (cp.sale.discount_usd_cents) {
+      ledger.push(row("خصم عند التسوية", cp.sale.discount_usd_cents, "loss"));
+    }
+  } else {
+    headline = `
+      <div class="chain-profit-headline">${money.formatUsd(cp.total_cost_usd_cents)}</div>
+      <div class="chain-profit-caption">رأس المال بالسلسلة لحد الآن</div>
+      <p class="chain-profit-note">${
+        cp.final_status === "archived"
+          ? `آخر سيارة (${esc(cp.final_car_name)}) مؤرشفة وما انباعت.`
+          : `آخر سيارة (${esc(cp.final_car_name)}) بعدها بالمخزون — ربح السلسلة ينحسب لما تنباع.`
+      }</p>`;
+  }
+
+  return `
+    <div class="card chain-profit">
+      <div class="chain-profit-head">
+        <h2>حساب السلسلة</h2>
+        <span class="chain-profit-count">${countCars(cp.cars_count)}</span>
+      </div>
+      ${headline}
+      <details class="chain-ledger" open>
+        <summary>كيف انحسب</summary>
+        ${ledger.join("")}
+      </details>
+    </div>`;
+}
+
 function chainHtml(chain, currentId) {
   if (!chain || chain.cars.length <= 1) return "";
   const items = chain.cars
@@ -611,7 +688,7 @@ function saleSectionHtml(car, closed) {
   if (car.status === "traded") {
     return `
       <div class="card">
-        <p>تم تبديل هذه السيارة بسيارة أخرى — ما تحقق عليها ربح مباشر، التكلفة انتقلت للسيارة الجديدة بالسلسلة أعلاه.</p>
+        <p>تم تبديل هذه السيارة بسيارة أخرى — ما تحقق عليها ربح لوحدها، وتكلفتها انتقلت للسيارة الجديدة. ربح السلسلة كاملة موضّح بحساب السلسلة أعلاه.</p>
       </div>
       <button class="btn secondary" id="undo-trade-btn" style="margin-bottom:16px">↩️ إلغاء التبديل (تم بالغلط)</button>
     `;

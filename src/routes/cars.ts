@@ -3,6 +3,7 @@ import type { AppEnv, CarStatus } from "../types";
 import { requireAuth } from "../middleware/requireAuth";
 import { parseMoneyField } from "../lib/money";
 import { getChainForCar } from "../lib/chain";
+import { getChainProfit } from "../lib/chainProfit";
 import { computeProfit } from "../lib/profit";
 
 export const carsRoutes = new Hono<AppEnv>();
@@ -154,6 +155,7 @@ carsRoutes.get("/:id", async (c) => {
   }
 
   const chain = await getChainForCar(c.env.DB, id);
+  const chainProfit = await getChainProfit(c.env.DB, chain);
 
   const expenseRows = expenses.results ?? [];
   const totalExpenses = expenseRows.reduce(
@@ -191,6 +193,7 @@ carsRoutes.get("/:id", async (c) => {
     sale: sale ?? null,
     installment_payments: payments,
     chain,
+    chain_profit: chainProfit,
     profit,
   });
 });
