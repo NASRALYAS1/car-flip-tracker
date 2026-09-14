@@ -917,3 +917,28 @@ label { display: block; font-size: 0.82rem; color: var(--text-dim); margin-botto
   padding-top: 10px;
   font-weight: 800;
 }
+
+/* ---- profit distributions (dashboard) ---- */
+.dist-hero {
+  background: linear-gradient(160deg, #17233f, #131c33);
+  border-color: #2f3f68;
+}
+.dist-title { color: var(--text-dim); font-size: 0.85rem; font-weight: 700; margin-bottom: 4px; }
+.dist-amount { font-size: 2rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.dist-sub { color: var(--text-dim); font-size: 0.8rem; margin-top: 2px; }
+.dist-shares { margin: 10px 0 4px; }
+.dist-note { color: var(--text-faint); font-size: 0.78rem; line-height: 1.6; margin: 10px 2px 0; }
+.dist-section-label { color: var(--text-dim); font-size: 0.8rem; font-weight: 700; margin: 12px 0 2px; }
+.partner-former { color: var(--text-faint); font-size: 0.72rem; font-weight: 700; }
+.dist-history { margin: 6px 0 16px; }
+.dist-history > summary { cursor: pointer; font-weight: 800; padding: 6px 0 10px; }
+.dist-item .card-row.sub { font-size: 0.85rem; }
+.dist-item .card-row.sub .label { color: var(--text-dim); }
+.stat.wide { grid-column: 1 / -1; }
+
+/* ---- small explanatory note ---- */
+.muted-note { color: var(--text-faint); font-size: 0.8rem; line-height: 1.6; margin: 12px 2px 0; }
+
+/* ---- partial repayments on people debts ---- */
+.pd-section-title { font-size: 0.9rem; font-weight: 800; margin: 16px 0 6px; }
+.pd-payment-form { margin-top: 12px; }

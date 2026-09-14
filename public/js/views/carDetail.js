@@ -289,7 +289,7 @@ function renderCarDetail(container, car, opts = {}) {
 
     ${saleSectionHtml(car, closed)}
 
-    ${car.status === "in_stock" ? actionsHtml(car.id) : ""}
+    ${car.status === "in_stock" ? actionsHtml(car.id) : car.status === "archived" ? archivedActionsHtml() : ""}
     ${dangerZoneHtml(car)}
     <div id="car-detail-msg"></div>
   `;
@@ -598,7 +598,7 @@ function chainProfitHtml(cp) {
   if (cp.sale && cp.profit) {
     const p = cp.profit;
     const tone = p.target_profit_usd_cents < 0 || p.realized_profit_usd_cents < 0 ? "loss" : "gain";
-    if (p.is_accrued) {
+    if (p.is_accrued && p.target_profit_usd_cents >= 0) {
       headline = `
         <div class="grid-2 chain-profit-stats">
           <div class="stat"><div class="num ${tone}">${money.formatUsd(p.realized_profit_usd_cents)}</div><div class="label">الربح المحقق حتى الآن</div></div>
@@ -673,13 +673,44 @@ function bindChainStrip(container, car) {
   });
 }
 
+// Archiving is reversible: it hides a car from the stock list without taking its
+// cost off the books, so the confirmation says exactly that and isn't dressed up
+// as a destructive action.
+function archivedActionsHtml() {
+  return `
+    <p class="muted-note">هذي السيارة مؤرشفة — مخفية من قائمة المخزون، بس كلفتها بعدها محسوبة برأس المال.</p>
+    <button class="btn secondary" id="unarchive-btn" style="margin-top:10px">إرجاع السيارة للمخزون</button>
+  `;
+}
+
 function bindActions(container, car) {
   const archiveBtn = container.querySelector("#archive-btn");
   if (archiveBtn) {
     archiveBtn.addEventListener("click", async () => {
-      if (!(await UI.confirm("أرشفة هذه السيارة؟", { danger: true }))) return;
-      await api.post(`/cars/${car.id}/archive`);
-      window.location.hash = "#/cars";
+      const ok = await UI.confirm(
+        "أرشفة هذه السيارة؟ تنخفي من قائمة المخزون، بس كلفتها تبقى محسوبة برأس المال، وتكدر ترجعها للمخزون بأي وقت.",
+        { okText: "أرشف" }
+      );
+      if (!ok) return;
+      try {
+        await api.post(`/cars/${car.id}/archive`);
+        window.location.hash = "#/cars/archived";
+      } catch (err) {
+        await UI.alert(err.message);
+      }
+    });
+  }
+
+  const unarchiveBtn = container.querySelector("#unarchive-btn");
+  if (unarchiveBtn) {
+    unarchiveBtn.addEventListener("click", async () => {
+      try {
+        await api.post(`/cars/${car.id}/unarchive`);
+        const fresh = await api.get(`/cars/${car.id}`);
+        renderCarDetail(container, fresh);
+      } catch (err) {
+        await UI.alert(err.message);
+      }
     });
   }
 }
@@ -852,11 +883,11 @@ function saleSectionHtml(car, closed) {
       <div class="card-row"><span class="label">سعر البيع</span><span class="value">${dualFor(s.sale_price_usd_cents, s, "sale_price")}</span></div>
       ${s.buyer_name ? `<div class="card-row"><span class="label">المشتري</span><span class="value">${esc(s.buyer_name)}</span></div>` : ""}
       <div class="card-row" style="border-top:1px solid var(--border);margin-top:8px;padding-top:10px">
-        <span class="label">${car.profit.is_accrued ? "الربح المحقق حتى الآن" : "الربح"}</span>
+        <span class="label">${profit < 0 ? "الخسارة" : car.profit.is_accrued ? "الربح المحقق حتى الآن" : "الربح"}</span>
         <span class="value" style="color:${profit >= 0 ? "var(--green)" : "var(--red)"}">${money.formatUsd(profit)}</span>
       </div>
       ${
-        car.profit.is_accrued
+        car.profit.is_accrued && profit >= 0
           ? `<p style="margin:6px 0 0;color:var(--text-dim);font-size:0.8rem">
                من إجمالي ربح متوقع ${money.formatUsd(car.profit.target_profit_usd_cents)} إذا اكتمل تسديد الأقساط —
                يزيد كل ما توصل دفعة جديدة.

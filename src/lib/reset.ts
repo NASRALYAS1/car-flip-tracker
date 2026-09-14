@@ -12,7 +12,10 @@ const RESET_TABLES = [
   "cars",
   "trades",
   "partner_loans",
+  "people_debt_payments",
   "people_debts",
+  "profit_distribution_shares",
+  "profit_distributions",
 ] as const;
 
 // Deliberately NOT touched, and worth being explicit about because the whole

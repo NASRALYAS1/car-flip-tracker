@@ -74,7 +74,7 @@ Views.reports = async function (container) {
         </div>
         <div class="end">
           <div class="amt">${money.formatUsd(runningCost)}</div>
-          <span class="badge ${stale ? "overdue" : "in_stock"}">${a.days_in_stock} يوم بالمخزون</span>
+          ${a.status === "archived" ? '<span class="badge archived">مؤرشفة</span> ' : ""}<span class="badge ${stale ? "overdue" : "in_stock"}">${a.days_in_stock} يوم بالمخزون</span>
         </div>
       </div>`;
           })

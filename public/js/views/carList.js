@@ -67,7 +67,7 @@ function renderCarListItems(cars, status) {
 Views.carList = async function (container, status) {
   const cars = await api.get(`/cars?status=${status}`);
 
-  const tabs = ["in_stock", "sold", "traded"]
+  const tabs = ["in_stock", "sold", "traded", "archived"]
     .map(
       (s) =>
         `<button class="${s === status ? "active" : ""}" data-status="${s}">${CAR_STATUS_LABELS[s]}</button>`

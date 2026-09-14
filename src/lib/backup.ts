@@ -8,6 +8,9 @@ const BACKUP_TABLES = [
   "trades",
   "partner_loans",
   "people_debts",
+  "people_debt_payments",
+  "profit_distributions",
+  "profit_distribution_shares",
   "car_photos",
   "settings",
 ] as const;
@@ -29,7 +32,10 @@ const DELETE_ORDER = [
   "cars",
   "trades",
   "partner_loans",
+  "people_debt_payments",
   "people_debts",
+  "profit_distribution_shares",
+  "profit_distributions",
   "settings",
 ] as const;
 
@@ -43,6 +49,9 @@ const INSERT_ORDER = [
   "car_photos",
   "partner_loans",
   "people_debts",
+  "people_debt_payments",
+  "profit_distributions",
+  "profit_distribution_shares",
 ] as const;
 
 async function allRows<T = unknown>(db: D1Database, table: string): Promise<T[]> {
@@ -114,6 +123,19 @@ export async function listBackups(bucket: R2Bucket): Promise<BackupInfo[]> {
 function upgradeOldSnapshot(snapshot: Record<string, unknown>): void {
   upgradePersonalDebts(snapshot);
   upgradeCarNames(snapshot);
+  upgradeMissingTables(snapshot);
+}
+
+// Tables added after a snapshot was taken simply aren't in it. Restore checks
+// that every current table is present, so without this every backup from before
+// a new table would be rejected as corrupt. A table the snapshot never had is
+// restored as empty -- which is exactly what it was at the time.
+const TABLES_ADDED_LATER = ["people_debt_payments", "profit_distributions", "profit_distribution_shares"];
+
+function upgradeMissingTables(snapshot: Record<string, unknown>): void {
+  for (const table of TABLES_ADDED_LATER) {
+    if (!Array.isArray(snapshot[table])) snapshot[table] = [];
+  }
 }
 
 function upgradePersonalDebts(snapshot: Record<string, unknown>): void {

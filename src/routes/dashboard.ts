@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../types";
 import { requireAuth } from "../middleware/requireAuth";
-import { computeProfit } from "../lib/profit";
 import { installmentState } from "../lib/installments";
+import { distributionOverview, lifetimeRealizedProfit, listDistributions } from "../lib/distributions";
 
 export const dashboardRoutes = new Hono<AppEnv>();
 dashboardRoutes.use("*", requireAuth);
@@ -10,46 +10,37 @@ dashboardRoutes.use("*", requireAuth);
 dashboardRoutes.get("/", async (c) => {
   const db = c.env.DB;
 
-  const [soldCarsRows, inStockRow, soldThisMonthRow, partnersRow, overdueRow] = await Promise.all([
+  const lifetimeProfit = await lifetimeRealizedProfit(db);
+
+  const [overview, distributions, stockRow, soldThisMonthRow, installmentRows] = await Promise.all([
+    distributionOverview(db, lifetimeProfit),
+    listDistributions(db),
+    // Capital sitting in cars that haven't been sold: what they cost plus what
+    // has been spent on them since. Expenses used to be left out, so three cars
+    // bought at 10,000 with 1,000 spent on each showed 30,000 when 33,000 was
+    // really tied up. Archived cars are hidden from the stock list but are still
+    // the business's money, so they count here too.
     db
       .prepare(
-        `SELECT c.purchase_price_usd_cents,
-                (SELECT COALESCE(SUM(amount_usd_cents), 0) FROM expenses WHERE car_id = c.id) AS total_expenses_usd_cents,
-                s.sale_type, s.sale_price_usd_cents, s.discount_usd_cents, s.down_payment_usd_cents,
-                (SELECT COALESCE(SUM(amount_usd_cents), 0) FROM installment_payments WHERE sale_id = s.id) AS installments_paid_usd_cents
+        `SELECT
+           COALESCE(SUM(CASE WHEN c.status = 'in_stock' THEN 1 ELSE 0 END), 0) AS in_stock_count,
+           COALESCE(SUM(CASE WHEN c.status = 'archived' THEN 1 ELSE 0 END), 0) AS archived_count,
+           COALESCE(SUM(c.purchase_price_usd_cents
+             + COALESCE((SELECT SUM(e.amount_usd_cents) FROM expenses e WHERE e.car_id = c.id), 0)), 0) AS capital
          FROM cars c
-         JOIN sales s ON s.car_id = c.id`
+         WHERE c.status IN ('in_stock', 'archived')`
       )
-      .all<{
-        purchase_price_usd_cents: number;
-        total_expenses_usd_cents: number;
-        sale_type: string;
-        sale_price_usd_cents: number;
-        discount_usd_cents: number;
-        down_payment_usd_cents: number | null;
-        installments_paid_usd_cents: number;
-      }>(),
-    db
-      .prepare(
-        `SELECT COUNT(*) AS count, COALESCE(SUM(purchase_price_usd_cents), 0) AS value
-         FROM cars WHERE status = 'in_stock'`
-      )
-      .first<{ count: number; value: number }>(),
+      .first<{ in_stock_count: number; archived_count: number; capital: number }>(),
     db
       .prepare(
         `SELECT COUNT(*) AS count FROM sales
          WHERE strftime('%Y-%m', sale_date) = strftime('%Y-%m', 'now')`
       )
       .first<{ count: number }>(),
-    db
-      .prepare(
-        `SELECT id, display_name, profit_split_pct FROM users WHERE is_active = 1 ORDER BY id`
-      )
-      .all<{ id: number; display_name: string; profit_split_pct: number }>(),
-    // Counted in JS through the shared rule rather than a second SQL one:
-    // this used to say "more than 30 days", while the car page and the
-    // nightly reminder said "more than one month", so the badge here could
-    // disagree with the car it was pointing at.
+    // Counted in JS through the shared rule rather than a second SQL one: this
+    // used to say "more than 30 days", while the car page and the nightly
+    // reminder said "more than one month", so the badge here could disagree
+    // with the car it was pointing at.
     db
       .prepare(
         `SELECT s.sale_price_usd_cents, s.discount_usd_cents, s.down_payment_usd_cents,
@@ -71,61 +62,34 @@ dashboardRoutes.get("/", async (c) => {
       }>(),
   ]);
 
-  const totalProfit = (soldCarsRows.results ?? []).reduce((sum, r) => {
-    const { realized_profit_usd_cents } = computeProfit({
-      sale_type: r.sale_type,
+  let overdueCount = 0;
+  // Money buyers still owe on installments. Shown beside the distribute button
+  // because profit that has accrued isn't necessarily cash in hand.
+  let outstandingInstallments = 0;
+  for (const r of installmentRows.results ?? []) {
+    const state = installmentState({
       sale_price_usd_cents: r.sale_price_usd_cents,
       discount_usd_cents: r.discount_usd_cents || 0,
       down_payment_usd_cents: r.down_payment_usd_cents || 0,
-      purchase_price_usd_cents: r.purchase_price_usd_cents,
-      total_expenses_usd_cents: r.total_expenses_usd_cents,
-      installments_paid_usd_cents: r.installments_paid_usd_cents,
+      paid_usd_cents: r.paid_usd_cents,
+      sale_date: r.sale_date,
+      last_payment_date: r.last_payment_date,
     });
-    return sum + realized_profit_usd_cents;
-  }, 0);
-  const partners = partnersRow.results ?? [];
-  // normalize against whatever the active partners' percentages actually sum
-  // to, rather than assuming exactly 100 — stays correct right after a
-  // partner is added (0%) or deactivated without forcing an immediate
-  // "fix the split" step.
-  const totalPct = partners.reduce((s, p) => s + p.profit_split_pct, 0);
-
-  let allocated = 0;
-  const partnerShares = partners.map((p, i) => {
-    const isLast = i === partners.length - 1;
-    let share: number;
-    if (isLast) {
-      share = totalProfit - allocated;
-    } else if (totalPct > 0) {
-      share = Math.round((totalProfit * p.profit_split_pct) / totalPct);
-    } else {
-      share = Math.round(totalProfit / partners.length);
-    }
-    allocated += share;
-    return {
-      user_id: p.id,
-      display_name: p.display_name,
-      split_pct: p.profit_split_pct,
-      share_usd_cents: share,
-    };
-  });
+    if (state.is_overdue) overdueCount++;
+    if (state.remaining_usd_cents > 0) outstandingInstallments += state.remaining_usd_cents;
+  }
 
   return c.json({
-    total_profit_usd_cents: totalProfit,
-    partner_shares: partnerShares,
-    in_stock_count: inStockRow?.count ?? 0,
-    in_stock_value_usd_cents: inStockRow?.value ?? 0,
+    total_profit_usd_cents: lifetimeProfit,
+    undistributed_profit_usd_cents: overview.undistributed_usd_cents,
+    last_distribution: overview.last_distribution,
+    partners: overview.partners,
+    distributions,
+    in_stock_count: stockRow?.in_stock_count ?? 0,
+    archived_count: stockRow?.archived_count ?? 0,
+    stock_capital_usd_cents: stockRow?.capital ?? 0,
+    outstanding_installments_usd_cents: outstandingInstallments,
     sold_this_month_count: soldThisMonthRow?.count ?? 0,
-    overdue_installments_count: (overdueRow.results ?? []).filter(
-      (r) =>
-        installmentState({
-          sale_price_usd_cents: r.sale_price_usd_cents,
-          discount_usd_cents: r.discount_usd_cents || 0,
-          down_payment_usd_cents: r.down_payment_usd_cents || 0,
-          paid_usd_cents: r.paid_usd_cents,
-          sale_date: r.sale_date,
-          last_payment_date: r.last_payment_date,
-        }).is_overdue
-    ).length,
+    overdue_installments_count: overdueCount,
   });
 });

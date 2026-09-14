@@ -6,8 +6,12 @@
 // landing on a deal someone else already settled. There's no safe automatic
 // answer to that, so shared writes stay online-only.
 //
-// Personal debts are the one exception: they're private to a single partner,
-// so nobody else can be editing the same row. Single writer, no conflicts.
+// The people-debts list is the one exception. It was private to a single
+// partner when this was written, which made it conflict-free; it is shared
+// between partners now, so two of them editing the same debt while offline can
+// still overwrite each other (whichever syncs last wins). Adding a new debt is
+// append-only and stays safe. Recording a repayment against a debt is not
+// queued at all -- it needs a connection.
 const Offline = {
   KEY: "people_debts_outbox",
 
