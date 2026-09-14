@@ -19,6 +19,6 @@ export type AppEnv = {
 
 export type Currency = "USD" | "IQD";
 
-export type CarStatus = "in_stock" | "sold" | "traded" | "archived";
+export type CarStatus = "in_stock" | "sold" | "traded";
 
 export type SaleType = "cash" | "installment";

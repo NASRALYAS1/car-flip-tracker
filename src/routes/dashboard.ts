@@ -18,19 +18,17 @@ dashboardRoutes.get("/", async (c) => {
     // Capital sitting in cars that haven't been sold: what they cost plus what
     // has been spent on them since. Expenses used to be left out, so three cars
     // bought at 10,000 with 1,000 spent on each showed 30,000 when 33,000 was
-    // really tied up. Archived cars are hidden from the stock list but are still
-    // the business's money, so they count here too.
+    // really tied up.
     db
       .prepare(
         `SELECT
-           COALESCE(SUM(CASE WHEN c.status = 'in_stock' THEN 1 ELSE 0 END), 0) AS in_stock_count,
-           COALESCE(SUM(CASE WHEN c.status = 'archived' THEN 1 ELSE 0 END), 0) AS archived_count,
+           COUNT(*) AS in_stock_count,
            COALESCE(SUM(c.purchase_price_usd_cents
              + COALESCE((SELECT SUM(e.amount_usd_cents) FROM expenses e WHERE e.car_id = c.id), 0)), 0) AS capital
          FROM cars c
-         WHERE c.status IN ('in_stock', 'archived')`
+         WHERE c.status = 'in_stock'`
       )
-      .first<{ in_stock_count: number; archived_count: number; capital: number }>(),
+      .first<{ in_stock_count: number; capital: number }>(),
     db
       .prepare(
         `SELECT COUNT(*) AS count FROM sales
@@ -86,7 +84,7 @@ dashboardRoutes.get("/", async (c) => {
     partners: overview.partners,
     distributions,
     in_stock_count: stockRow?.in_stock_count ?? 0,
-    archived_count: stockRow?.archived_count ?? 0,
+
     stock_capital_usd_cents: stockRow?.capital ?? 0,
     outstanding_installments_usd_cents: outstandingInstallments,
     sold_this_month_count: soldThisMonthRow?.count ?? 0,

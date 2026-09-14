@@ -110,7 +110,7 @@ function renderDashboard(container, d) {
     <div class="grid-2">
       <div class="stat">
         <div class="num">🚗 ${d.in_stock_count || 0}</div>
-        <div class="label">سيارات بالمخزون${d.archived_count ? ` (+${d.archived_count} مؤرشفة)` : ""}</div>
+        <div class="label">سيارات بالمخزون</div>
       </div>
       <div class="stat">
         <div class="num">${money.formatUsd(stockCapital)}</div>

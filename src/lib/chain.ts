@@ -25,7 +25,7 @@ const MAX_CHAIN_HOPS = 25; // safety bound, real chains are ~5-10
 /**
  * Walks the full trade chain a given car belongs to: backward to the
  * original cash-purchased car, then forward through every trade to the
- * current end of the chain (a car that's in stock, sold, or archived).
+ * current end of the chain (a car that's in stock or sold).
  */
 export async function getChainForCar(db: D1Database, carId: number): Promise<ChainResult> {
   const carsById = new Map<number, ChainCar>();

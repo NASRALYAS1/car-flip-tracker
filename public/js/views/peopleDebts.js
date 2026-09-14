@@ -2,20 +2,25 @@
 // partner sees and edits the same list, so the totals here are the business's
 // position with the outside world, not one person's.
 async function renderPeopleDebtsTab(container) {
-  // Anything still queued from an offline session goes up first, so the
-  // list below reflects the server rather than fighting with the queue.
-  await Offline.flush();
+  const { list, offlineOnly } = await loadPeopleDebts();
+  renderPeopleDebts(container, list, offlineOnly);
+}
 
+// Shared by the list and by a single debt's page, so both read the same data
+// the same way. Anything still queued from an offline session goes up first, so
+// the screen reflects the server rather than fighting the queue; with no
+// connection and nothing cached it still shows what's queued locally instead of
+// an error page.
+async function loadPeopleDebts() {
+  await Offline.flush();
   let serverDebts = [];
   let offlineOnly = false;
   try {
     serverDebts = await api.get("/people-debts");
-  } catch (err) {
-    // No connection and nothing cached — still show whatever is queued
-    // locally rather than an error page.
+  } catch {
     offlineOnly = true;
   }
-  renderPeopleDebts(container, Offline.applyTo(serverDebts), offlineOnly);
+  return { list: Offline.applyTo(serverDebts), offlineOnly };
 }
 
 function peopleDebtRecorder(userId) {
@@ -37,7 +42,7 @@ function renderPeopleDebtRows(debts) {
       const paid = d.paid_usd_cents || 0;
       const partlyPaid = paid > 0 && !d.is_settled;
       return `
-    <div class="list-item" data-debt-id="${d.id}" style="${d.is_settled ? "opacity:.55" : ""}">
+    <div class="list-item" data-debt-id="${esc(d.id)}" style="${d.is_settled ? "opacity:.55" : ""}">
       <div>
         <div class="main">${esc(d.person_name)}${d.is_settled ? " ✅" : ""}${d._pending ? ' <span class="badge in_stock">⏳ بانتظار المزامنة</span>' : ""}</div>
         <div class="sub">${dirLabel}${d.reason ? ` · ${esc(d.reason)}` : ""} · ${esc(d.debt_date)}${partlyPaid ? ` · انسدد ${money.formatUsd(paid)} من ${money.formatUsd(d.amount_usd_cents)}` : ""}</div>
@@ -117,26 +122,18 @@ function renderPeopleDebts(container, debts, offlineOnly = false) {
     container.querySelector("#add-debt-wrap").classList.toggle("hidden");
   });
 
-  // Returns the list it rendered, so a detail panel can reopen on the fresh
-  // copy of the debt it was showing.
   async function refresh() {
-    let fresh = [];
-    let offline = false;
-    try {
-      fresh = await api.get("/people-debts");
-    } catch {
-      offline = true;
-    }
-    const list = Offline.applyTo(fresh);
+    const { list, offlineOnly: offline } = await loadPeopleDebts();
     renderPeopleDebts(container, list, offline);
-    return list;
   }
 
+  // A debt opens on its own page. It used to open as a panel under the whole
+  // list, so reading one person's payments meant scrolling past every other
+  // debt, the totals and the add form — all still on screen around it.
   function bindRowClicks() {
     container.querySelectorAll("#people-debts-list [data-debt-id]").forEach((row) => {
       row.addEventListener("click", () => {
-        const d = debts.find((x) => String(x.id) === row.dataset.debtId);
-        openPeopleDebtDetail(container, d, refresh);
+        window.location.hash = `#/people-debt/${encodeURIComponent(row.dataset.debtId)}`;
       });
     });
   }
@@ -194,81 +191,139 @@ function renderPeopleDebts(container, debts, offlineOnly = false) {
   });
 }
 
-function openPeopleDebtDetail(container, debt, refresh) {
-  const existing = container.querySelector("#debt-detail-wrap");
-  if (existing) existing.remove();
+// One person's debt on a page of its own: what's left, what's been paid back
+// and when, and the actions for it — nothing belonging to anyone else.
+Views.peopleDebtDetail = async function (container, id) {
+  const { list } = await loadPeopleDebts();
+  const debt = list.find((d) => String(d.id) === String(id));
+  if (!debt) {
+    container.innerHTML = `
+      <div class="topbar"><span class="back" data-back>→</span><h1>الدين</h1></div>
+      <div class="error-msg">هذا الدين مو موجود — يمكن انحذف.</div>`;
+    container.querySelector("[data-back]").addEventListener("click", backToPeopleDebts);
+    return;
+  }
+  renderPeopleDebtPage(container, debt);
+};
 
+function backToPeopleDebts() {
+  window.location.hash = "#/debts/people";
+}
+
+function renderPeopleDebtPage(container, debt) {
+  const amount = debt.amount_usd_cents;
   const paid = debt.paid_usd_cents || 0;
   const remaining = debtRemaining(debt);
   const payments = debt.payments || [];
+  const weOwe = debt.direction === "we_owe_them";
   const canPay = !debt.is_settled && remaining > 0;
+  const pct = amount > 0 ? Math.min(100, Math.max(0, (paid / amount) * 100)) : 0;
 
-  const wrap = document.createElement("div");
-  wrap.id = "debt-detail-wrap";
-  wrap.className = "card";
-  wrap.innerHTML = `
-    <h2>${esc(debt.person_name)}</h2>
-    <div class="card-row"><span class="label">الاتجاه</span><span class="value">${debt.direction === "we_owe_them" ? "إحنا مدينين له" : "هو مدين إلنا"}</span></div>
-    <div class="card-row"><span class="label">المبلغ</span><span class="value">${money.formatDual(debt.amount_usd_cents, debt)}</span></div>
-    ${
-      paid > 0
-        ? `<div class="card-row"><span class="label">انسدد لحد الآن</span><span class="value" style="color:var(--green)">${money.formatUsd(paid)}</span></div>
-           <div class="card-row"><span class="label">الباقي</span><span class="value">${money.formatUsd(Math.max(0, remaining))}</span></div>`
-        : ""
-    }
-    <div class="card-row"><span class="label">التاريخ</span><span class="value">${esc(debt.debt_date)}</span></div>
-    ${debt.recorded_by ? `<div class="card-row"><span class="label">سجّله</span><span class="value">${esc(peopleDebtRecorder(debt.recorded_by))}</span></div>` : ""}
-    ${debt.person_phone ? `<div class="card-row"><span class="label">الهاتف</span><span class="value">${esc(debt.person_phone)}</span></div>` : ""}
-    ${debt.person_address ? `<div class="card-row"><span class="label">العنوان</span><span class="value">${esc(debt.person_address)}</span></div>` : ""}
-    ${debt.reason ? `<div class="card-row"><span class="label">السبب</span><span class="value">${esc(debt.reason)}</span></div>` : ""}
-    ${debt.notes ? `<div class="card-row"><span class="label">ملاحظات</span><span class="value">${esc(debt.notes)}</span></div>` : ""}
-    ${debt.is_settled ? `<div class="card-row"><span class="label">تم السداد</span><span class="value" style="color:var(--green)">${esc(debt.settled_date || "")} ✅</span></div>` : ""}
+  let headlineLabel;
+  let headlineAmount;
+  let headlineColor;
+  if (!debt.is_settled) {
+    headlineLabel = weOwe ? "باقي علينا إله" : "باقي عليه إلنا";
+    headlineAmount = Math.max(0, remaining);
+    headlineColor = "var(--amber)";
+  } else if (remaining <= 0) {
+    headlineLabel = "تم السداد بالكامل ✅";
+    headlineAmount = amount;
+    headlineColor = "var(--green)";
+  } else {
+    // Marked settled with part of it still unpaid: the rest was let go.
+    headlineLabel = "اعتُبر مسدد — وانترك الباقي";
+    headlineAmount = remaining;
+    headlineColor = "var(--text-dim)";
+  }
 
-    <div class="pd-section-title">الدفعات</div>
-    ${
-      payments.length
-        ? payments
-            .map(
-              (p) => `
-      <div class="payment-row">
-        <div class="icon">💵</div>
-        <div class="info">
-          <div class="amt">${money.formatDual(p.amount_usd_cents, p)}</div>
-          <div class="date">${esc(p.payment_date)}${p.notes ? ` · ${esc(p.notes)}` : ""}</div>
+  container.innerHTML = `
+    <div class="topbar">
+      <span class="back" data-back>→</span>
+      <h1>${esc(debt.person_name)}</h1>
+      ${debt.is_settled ? '<span class="badge sold">مسدد</span>' : ""}
+    </div>
+
+    <div class="card">
+      <div style="text-align:center;padding:2px 0 6px">
+        <div style="color:var(--text-dim);font-size:0.85rem;font-weight:700">${headlineLabel}</div>
+        <div style="font-size:2rem;font-weight:800;font-variant-numeric:tabular-nums;margin-top:2px;color:${headlineColor}">
+          ${money.formatUsd(headlineAmount)}
         </div>
-        <a href="#" class="del" data-del-debt-payment="${p.id}" title="حذف الدفعة">✕</a>
-      </div>`
-            )
-            .join("")
-        : '<p style="color:var(--text-dim);margin:0">ما فيه دفعات مسجلة بعد</p>'
-    }
+      </div>
+      <div class="progress-bar"><div class="fill ${debt.is_settled ? "done" : ""}" style="width:${pct}%"></div></div>
+      <div class="progress-caption">
+        <span>انسدد ${money.formatUsd(paid)} من ${money.formatUsd(amount)}</span>
+        <span>${Math.round(pct)}%</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-row"><span class="label">الاتجاه</span><span class="value">${weOwe ? "إحنا مدينين له" : "هو مدين إلنا"}</span></div>
+      <div class="card-row"><span class="label">المبلغ الأصلي</span><span class="value">${money.formatDual(amount, debt)}</span></div>
+      <div class="card-row"><span class="label">تاريخ الدين</span><span class="value">${esc(debt.debt_date)}</span></div>
+      ${debt.is_settled && debt.settled_date ? `<div class="card-row"><span class="label">تاريخ السداد</span><span class="value" style="color:var(--green)">${esc(debt.settled_date)}</span></div>` : ""}
+      ${debt.recorded_by ? `<div class="card-row"><span class="label">سجّله</span><span class="value">${esc(peopleDebtRecorder(debt.recorded_by))}</span></div>` : ""}
+      ${debt.person_phone ? `<div class="card-row"><span class="label">الهاتف</span><span class="value">${esc(debt.person_phone)}</span></div>` : ""}
+      ${debt.person_address ? `<div class="card-row"><span class="label">العنوان</span><span class="value">${esc(debt.person_address)}</span></div>` : ""}
+      ${debt.reason ? `<div class="card-row"><span class="label">السبب</span><span class="value">${esc(debt.reason)}</span></div>` : ""}
+      ${debt.notes ? `<div class="card-row"><span class="label">ملاحظات</span><span class="value">${esc(debt.notes)}</span></div>` : ""}
+    </div>
+
+    <h2>سجل الدفعات</h2>
+    <div class="card">
+      ${
+        payments.length
+          ? payments
+              .map(
+                (p) => `
+        <div class="payment-row">
+          <div class="icon">💵</div>
+          <div class="info">
+            <div class="amt">${money.formatDual(p.amount_usd_cents, p)}</div>
+            <div class="date">${esc(p.payment_date)}${p.notes ? ` · ${esc(p.notes)}` : ""}</div>
+          </div>
+          <a href="#" class="del" data-del-debt-payment="${p.id}" title="حذف الدفعة">✕</a>
+        </div>`
+              )
+              .join("")
+          : '<p style="color:var(--text-dim);margin:0">ما فيه دفعات مسجلة بعد</p>'
+      }
+    </div>
 
     ${
       canPay
-        ? `<form id="pd-payment-form" class="pd-payment-form">
-            ${money.inputHtml("pay_amount", "مبلغ الدفعة")}
-            <button type="button" class="btn secondary" id="pd-fill-remaining" style="margin:-4px 0 12px">كل الباقي (${money.formatUsd(remaining)})</button>
-            <div class="field"><label>تاريخ الدفعة</label><input type="date" name="payment_date" value="${new Date().toISOString().slice(0, 10)}" required /></div>
-            <div class="field"><label>ملاحظات (اختياري)</label><input name="payment_notes" /></div>
-            <button type="submit" class="btn">حفظ الدفعة</button>
-          </form>`
+        ? `<h2>تسجيل دفعة</h2>
+    <div class="card">
+      <form id="pd-payment-form">
+        ${money.inputHtml("pay_amount", "مبلغ الدفعة")}
+        <button type="button" class="btn secondary" id="pd-fill-remaining" style="margin:-4px 0 12px">كل الباقي (${money.formatUsd(remaining)})</button>
+        <div class="field"><label>تاريخ الدفعة</label><input type="date" name="payment_date" value="${new Date().toISOString().slice(0, 10)}" required /></div>
+        <div class="field"><label>ملاحظات (اختياري)</label><input name="payment_notes" /></div>
+        <button type="submit" class="btn">حفظ الدفعة</button>
+      </form>
+    </div>`
         : ""
     }
 
-    <div class="btn-row" style="margin-top:14px">
+    <div class="btn-row" style="margin-top:6px">
       <button class="btn secondary" id="pd-settle-btn">${debt.is_settled ? "إلغاء علامة السداد" : paid > 0 ? "✅ اعتباره مسدد (بدون الباقي)" : "✅ تحديد كمسدد"}</button>
-      <button class="btn danger" id="pd-delete-btn">حذف</button>
+      <button class="btn danger" id="pd-delete-btn">حذف الدين</button>
     </div>
-    <button class="btn secondary" id="pd-close-btn" style="margin-top:10px">إغلاق</button>
   `;
-  container.querySelector("#people-debts-msg").before(wrap);
-  wrap.scrollIntoView({ block: "center" });
 
-  wrap.querySelector("#pd-close-btn").addEventListener("click", () => wrap.remove());
+  container.querySelector("[data-back]").addEventListener("click", backToPeopleDebts);
+
+  const reload = async () => {
+    const { list } = await loadPeopleDebts();
+    const fresh = list.find((d) => String(d.id) === String(debt.id));
+    if (fresh) renderPeopleDebtPage(container, fresh);
+    else backToPeopleDebts();
+  };
 
   // Repayments go straight to the server rather than into the offline queue:
-  // they change what's owed, and a debt that hasn't synced yet has no server
-  // id to record them against.
+  // they change what's owed, and a debt that hasn't synced yet has no server id
+  // to record them against.
   const needsServer = async () => {
     if (Offline.isOffline() || debt._pending) {
       await UI.alert("تسجيل الدفعات يحتاج اتصال بالإنترنت، والدين لازم يكون مرفوع للسيرفر.");
@@ -277,16 +332,10 @@ function openPeopleDebtDetail(container, debt, refresh) {
     return false;
   };
 
-  const reopen = async () => {
-    const list = await refresh();
-    const fresh = (list || []).find((x) => String(x.id) === String(debt.id));
-    if (fresh) openPeopleDebtDetail(container, fresh, refresh);
-  };
-
-  const payForm = wrap.querySelector("#pd-payment-form");
+  const payForm = container.querySelector("#pd-payment-form");
   if (payForm) {
     money.bindInputToggle(payForm, "pay_amount");
-    wrap.querySelector("#pd-fill-remaining").addEventListener("click", () => {
+    container.querySelector("#pd-fill-remaining").addEventListener("click", () => {
       payForm.querySelector('[data-money-currency="pay_amount"]').value = "USD";
       payForm.querySelector('[data-rate-row="pay_amount"]').classList.remove("show");
       const input = payForm.querySelector('[name="pay_amount_amount_display"]');
@@ -307,28 +356,28 @@ function openPeopleDebtDetail(container, debt, refresh) {
           amount_currency: field.pay_amount_currency,
           amount_exchange_rate: field.pay_amount_exchange_rate,
         });
-        await reopen();
+        await reload();
       } catch (err) {
         await UI.alert(err.message);
       }
     });
   }
 
-  wrap.querySelectorAll("[data-del-debt-payment]").forEach((a) => {
+  container.querySelectorAll("[data-del-debt-payment]").forEach((a) => {
     a.addEventListener("click", async (e) => {
       e.preventDefault();
       if (await needsServer()) return;
       if (!(await UI.confirm("حذف هذه الدفعة؟", { danger: true }))) return;
       try {
         await api.del(`/people-debts/${debt.id}/payments/${a.dataset.delDebtPayment}`);
-        await reopen();
+        await reload();
       } catch (err) {
         await UI.alert(err.message);
       }
     });
   });
 
-  wrap.querySelector("#pd-settle-btn").addEventListener("click", async () => {
+  container.querySelector("#pd-settle-btn").addEventListener("click", async () => {
     const patch = { is_settled: !debt.is_settled };
     try {
       if (Offline.isOffline() || debt._pending) {
@@ -343,11 +392,10 @@ function openPeopleDebtDetail(container, debt, refresh) {
       }
       Offline.queuePatch(debt.id, patch);
     }
-    wrap.remove();
-    await refresh();
+    await reload();
   });
 
-  wrap.querySelector("#pd-delete-btn").addEventListener("click", async () => {
+  container.querySelector("#pd-delete-btn").addEventListener("click", async () => {
     if (!(await UI.confirm(`حذف دين ${esc(debt.person_name)}؟`, { danger: true }))) return;
     try {
       if (Offline.isOffline() || debt._pending) {
@@ -362,7 +410,6 @@ function openPeopleDebtDetail(container, debt, refresh) {
       }
       Offline.queueDelete(debt.id);
     }
-    wrap.remove();
-    await refresh();
+    backToPeopleDebts();
   });
 }

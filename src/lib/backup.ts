@@ -124,6 +124,26 @@ function upgradeOldSnapshot(snapshot: Record<string, unknown>): void {
   upgradePersonalDebts(snapshot);
   upgradeCarNames(snapshot);
   upgradeMissingTables(snapshot);
+  upgradeArchivedCars(snapshot);
+}
+
+// Archiving was removed from the application. A snapshot taken while it existed
+// can still hold archived cars, and restoring them as they are would bring back
+// cars no screen can show. Each is given the status it really has, the same way
+// migration 0013 did it: sold if the snapshot has a sale for it, traded if it
+// was traded away, otherwise in stock.
+function upgradeArchivedCars(snapshot: Record<string, unknown>): void {
+  if (!Array.isArray(snapshot.cars)) return;
+  const rows = (key: string): Record<string, unknown>[] =>
+    Array.isArray(snapshot[key]) ? (snapshot[key] as Record<string, unknown>[]) : [];
+  const soldIds = new Set(rows("sales").map((s) => s.car_id));
+  const tradedIds = new Set(rows("trades").map((t) => t.outgoing_car_id));
+
+  snapshot.cars = (snapshot.cars as Record<string, unknown>[]).map((car) => {
+    if (car.status !== "archived") return car;
+    const status = soldIds.has(car.id) ? "sold" : tradedIds.has(car.id) ? "traded" : "in_stock";
+    return { ...car, status };
+  });
 }
 
 // Tables added after a snapshot was taken simply aren't in it. Restore checks

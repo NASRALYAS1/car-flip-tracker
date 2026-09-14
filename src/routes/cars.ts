@@ -283,42 +283,12 @@ carsRoutes.patch("/:id", async (c) => {
   return c.json(updated);
 });
 
-// Archiving hides a car that isn't for sale right now -- waiting on papers,
-// parked long-term -- without taking it off the books: its cost still counts as
-// capital on the dashboard and in the stock-age report, and it can go back into
-// stock at any time. Only a car that's actually in stock can be archived. A sold
-// or traded car hidden this way would drop out of every list while its numbers
-// went on counting.
-carsRoutes.post("/:id/archive", async (c) => {
-  const id = Number(c.req.param("id"));
-  const result = await c.env.DB.prepare(
-    `UPDATE cars SET status = 'archived', updated_at = datetime('now') WHERE id = ? AND status = 'in_stock'`
-  )
-    .bind(id)
-    .run();
-  if (!result.meta.changes) {
-    return c.json({ error: "بس السيارة اللي بالمخزون تنأرشف" }, 400);
-  }
-  return c.json({ ok: true });
-});
 
-carsRoutes.post("/:id/unarchive", async (c) => {
-  const id = Number(c.req.param("id"));
-  const result = await c.env.DB.prepare(
-    `UPDATE cars SET status = 'in_stock', updated_at = datetime('now') WHERE id = ? AND status = 'archived'`
-  )
-    .bind(id)
-    .run();
-  if (!result.meta.changes) {
-    return c.json({ error: "هذي السيارة مو مؤرشفة" }, 400);
-  }
-  return c.json({ ok: true });
-});
 
 // Deleting a car erases the whole deal — the purchase, its expenses, its
 // photos, its sale and every installment payment on it. It exists because a
 // deal can be entered by mistake (wrong car, duplicate entry, a sale that
-// never actually happened), and leaving it archived would keep dragging a
+// never actually happened), and leaving it in the books would keep dragging a
 // fictional cost through every profit report.
 //
 // A car that's part of a trade chain is refused: its cost is either carried

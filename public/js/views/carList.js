@@ -2,7 +2,6 @@ const CAR_STATUS_LABELS = {
   in_stock: "بالمخزون",
   sold: "مباعة",
   traded: "مبدَّلة",
-  archived: "مؤرشفة",
 };
 
 // What the number on the left of a row should be depends on where the car is
@@ -65,9 +64,12 @@ function renderCarListItems(cars, status) {
 }
 
 Views.carList = async function (container, status) {
+  // An old link to a tab that no longer exists (the archived one) lands on the
+  // stock list instead of an empty list with a blank title.
+  if (!["in_stock", "sold", "traded"].includes(status)) status = "in_stock";
   const cars = await api.get(`/cars?status=${status}`);
 
-  const tabs = ["in_stock", "sold", "traded", "archived"]
+  const tabs = ["in_stock", "sold", "traded"]
     .map(
       (s) =>
         `<button class="${s === status ? "active" : ""}" data-status="${s}">${CAR_STATUS_LABELS[s]}</button>`

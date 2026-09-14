@@ -56,9 +56,17 @@ body {
   animation: viewIn 0.22s ease both;
 }
 
+/* Opacity only, deliberately. This used to slide the page up 6px with a
+   transform, and animation-fill-mode: both kept transform: translateY(0) on
+   #app after the animation ended. Any transform other than none turns an
+   element into the containing block for position: fixed children, so the
+   floating add-car button stopped being fixed to the screen and was placed
+   against #app instead: at the foot of a long list rather than pinned, and on
+   Android, where 100vh is taller than the visible screen, behind the bottom
+   navigation bar. Fading without moving leaves nothing to trap it. */
 @keyframes viewIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 h1, h2, h3 { margin: 0 0 12px; font-weight: 800; letter-spacing: -0.01em; }
@@ -255,7 +263,6 @@ label { display: block; font-size: 0.82rem; color: var(--text-dim); margin-botto
 .badge.in_stock { background: #1e3a8a4d; color: #7dc2ff; }
 .badge.sold { background: var(--green-soft); color: #6ee7b7; }
 .badge.traded { background: var(--amber-soft); color: #fcd34d; }
-.badge.archived { background: #37415155; color: #9ca3af; }
 .badge.overdue { background: var(--red-soft); color: #fca5a5; }
 .badge.ok { background: var(--green-soft); color: #6ee7b7; }
 
@@ -936,9 +943,5 @@ label { display: block; font-size: 0.82rem; color: var(--text-dim); margin-botto
 .dist-item .card-row.sub .label { color: var(--text-dim); }
 .stat.wide { grid-column: 1 / -1; }
 
-/* ---- small explanatory note ---- */
-.muted-note { color: var(--text-faint); font-size: 0.8rem; line-height: 1.6; margin: 12px 2px 0; }
 
-/* ---- partial repayments on people debts ---- */
-.pd-section-title { font-size: 0.9rem; font-weight: 800; margin: 16px 0 6px; }
-.pd-payment-form { margin-top: 12px; }
+

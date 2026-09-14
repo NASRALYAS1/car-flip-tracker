@@ -151,13 +151,13 @@ reportsRoutes.get("/summary", async (c) => {
 // into, separate from any date range (it's always "as of right now").
 reportsRoutes.get("/inventory-aging", async (c) => {
   const { results } = await c.env.DB.prepare(
-    `SELECT c.id AS car_id, c.name, c.year, c.purchase_date, c.status,
+    `SELECT c.id AS car_id, c.name, c.year, c.purchase_date,
             c.purchase_price_usd_cents,
             COALESCE(SUM(e.amount_usd_cents), 0) AS total_expenses_usd_cents,
             CAST(julianday('now') - julianday(c.purchase_date) AS INTEGER) AS days_in_stock
      FROM cars c
      LEFT JOIN expenses e ON e.car_id = c.id
-     WHERE c.status IN ('in_stock', 'archived')
+     WHERE c.status = 'in_stock'
      GROUP BY c.id
      ORDER BY days_in_stock DESC`
   ).all();

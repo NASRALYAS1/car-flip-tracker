@@ -75,6 +75,8 @@ async function router() {
         return await Views.debts(appEl, params[0]);
       case "debt":
         return await Views.debtDetail(appEl, Number(params[0]));
+      case "people-debt":
+        return await Views.peopleDebtDetail(appEl, decodeURIComponent(params[0] || ""));
       case "reports":
         return await Views.reports(appEl);
       case "settings":
@@ -183,7 +185,7 @@ async function syncPending() {
   const { synced } = await Offline.flush();
   renderConnectionBanner();
   // Re-render so anything that just synced loses its "pending" marker.
-  if (synced > 0 && parseHash().route === "debts") await router();
+  if (synced > 0 && ["debts", "people-debt"].includes(parseHash().route)) await router();
 }
 
 window.addEventListener("online", syncPending);

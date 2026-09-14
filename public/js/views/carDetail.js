@@ -289,7 +289,7 @@ function renderCarDetail(container, car, opts = {}) {
 
     ${saleSectionHtml(car, closed)}
 
-    ${car.status === "in_stock" ? actionsHtml(car.id) : car.status === "archived" ? archivedActionsHtml() : ""}
+    ${car.status === "in_stock" ? actionsHtml(car.id) : ""}
     ${dangerZoneHtml(car)}
     <div id="car-detail-msg"></div>
   `;
@@ -395,7 +395,6 @@ function renderCarDetail(container, car, opts = {}) {
   bindDealLock(container, car, opts);
   bindDangerZone(container, car, opts);
   bindChainStrip(container, car);
-  bindActions(container, car);
   bindSaleSection(container, car, opts);
 }
 
@@ -618,11 +617,7 @@ function chainProfitHtml(cp) {
     headline = `
       <div class="chain-profit-headline">${money.formatUsd(cp.total_cost_usd_cents)}</div>
       <div class="chain-profit-caption">رأس المال بالسلسلة لحد الآن</div>
-      <p class="chain-profit-note">${
-        cp.final_status === "archived"
-          ? `آخر سيارة (${esc(cp.final_car_name)}) مؤرشفة وما انباعت.`
-          : `آخر سيارة (${esc(cp.final_car_name)}) بعدها بالمخزون — ربح السلسلة ينحسب لما تنباع.`
-      }</p>`;
+      <p class="chain-profit-note">آخر سيارة (${esc(cp.final_car_name)}) بعدها بالمخزون — ربح السلسلة ينحسب لما تنباع.</p>`;
   }
 
   return `
@@ -656,7 +651,6 @@ function actionsHtml(id) {
       <a href="#/sale/${id}" class="btn">بيع</a>
       <a href="#/trade/${id}" class="btn secondary">تبديل بسيارة</a>
     </div>
-    <button class="btn secondary" id="archive-btn" style="margin-top:10px">أرشفة السيارة</button>
   `;
 }
 
@@ -673,47 +667,7 @@ function bindChainStrip(container, car) {
   });
 }
 
-// Archiving is reversible: it hides a car from the stock list without taking its
-// cost off the books, so the confirmation says exactly that and isn't dressed up
-// as a destructive action.
-function archivedActionsHtml() {
-  return `
-    <p class="muted-note">هذي السيارة مؤرشفة — مخفية من قائمة المخزون، بس كلفتها بعدها محسوبة برأس المال.</p>
-    <button class="btn secondary" id="unarchive-btn" style="margin-top:10px">إرجاع السيارة للمخزون</button>
-  `;
-}
 
-function bindActions(container, car) {
-  const archiveBtn = container.querySelector("#archive-btn");
-  if (archiveBtn) {
-    archiveBtn.addEventListener("click", async () => {
-      const ok = await UI.confirm(
-        "أرشفة هذه السيارة؟ تنخفي من قائمة المخزون، بس كلفتها تبقى محسوبة برأس المال، وتكدر ترجعها للمخزون بأي وقت.",
-        { okText: "أرشف" }
-      );
-      if (!ok) return;
-      try {
-        await api.post(`/cars/${car.id}/archive`);
-        window.location.hash = "#/cars/archived";
-      } catch (err) {
-        await UI.alert(err.message);
-      }
-    });
-  }
-
-  const unarchiveBtn = container.querySelector("#unarchive-btn");
-  if (unarchiveBtn) {
-    unarchiveBtn.addEventListener("click", async () => {
-      try {
-        await api.post(`/cars/${car.id}/unarchive`);
-        const fresh = await api.get(`/cars/${car.id}`);
-        renderCarDetail(container, fresh);
-      } catch (err) {
-        await UI.alert(err.message);
-      }
-    });
-  }
-}
 
 function saleSectionHtml(car, closed) {
   if (car.status === "traded") {
